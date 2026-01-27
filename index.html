@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="pt-BR" data-bs-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LN Studio (Bootstrap + Vue)</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      body {
+        transition: background-color 0.3s, color 0.3s;
+      }
+      .fade-enter-active, .fade-leave-active {
+        transition: opacity 0.3s ease;
+      }
+      .fade-enter-from, .fade-leave-to {
+        opacity: 0;
+      }
+      .prompt-box {
+        border-left: 4px solid var(--bs-primary);
+        background-color: rgba(0, 0, 0, 0.03);
+        font-family: monospace;
+        font-size: 0.85rem;
+      }
+      /* Ajuste para imagens dentro do HTML gerado pela IA ficarem responsivas */
+      .chapter-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div :style="themeStyles" class="min-vh-100 d-flex flex-column position-relative">
+        <transition name="fade" mode="out-in">
+          
+          <div v-if="screen === 'start'" class="d-flex flex-column justify-content-center align-items-center flex-grow-1 text-center p-4">
+            <h1 class="display-1 fw-bold mb-2 text-primary">
+              <i class="bi bi-pen-fill"></i> LN Studio
+            </h1>
+            <p class="lead mb-5 opacity-75">Bootstrap Edition v8.1</p>
+
+            <div class="d-grid gap-3 col-lg-3 col-md-6 col-12">
+              <input type="file" ref="fileInput" @change="handleFileUpload" accept=".json" hidden />
+              <button class="btn btn-primary btn-lg rounded-pill shadow-sm" @click="$refs.fileInput.click()">
+                <i class="bi bi-folder2-open me-2"></i> Abrir Arquivo
+              </button>
+              <button class="btn btn-outline-primary btn-lg rounded-pill" @click="startCreator">
+                <i class="bi bi-stars me-2"></i> Nova Aventura
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="screen === 'creator'" class="container py-5" style="max-width: 800px">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h2 class="text-primary m-0">Novo Projeto</h2>
+              <button class="btn btn-link text-decoration-none text-danger" @click="goHome">
+                <i class="bi bi-x-lg"></i> Cancelar
+              </button>
+            </div>
+
+            <div class="card shadow-sm mb-4 border-0">
+              <div class="card-body p-4">
+                <h4 class="card-title text-primary mb-3"><i class="bi bi-seedling"></i> 1. A Semente</h4>
+                <div class="mb-3">
+                  <label class="form-label fw-bold">Gênero e Temas</label>
+                  <input type="text" class="form-control form-control-lg" v-model="template.seed.genero" placeholder="Ex: Isekai, Cyberpunk..." />
+                </div>
+                <div class="mb-0">
+                  <label class="form-label fw-bold">Observações</label>
+                  <textarea class="form-control" rows="3" v-model="obsText" placeholder="Regras do mundo, estilo do protagonista..."></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="card shadow-sm mb-4 border-0">
+              <div class="card-body p-4">
+                <h4 class="card-title text-primary mb-3"><i class="bi bi-code-slash"></i> 2. Prompt Mestre</h4>
+                <div class="bg-dark text-light p-3 rounded mb-3 overflow-auto" style="height: 200px; font-family: monospace; font-size: 0.8rem;">
+                  {{ jsonPreview }}
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-primary" @click="copyToClipboard"><i class="bi bi-clipboard me-1"></i> Copiar Prompt</button>
+                  <button class="btn btn-outline-secondary" @click="downloadJson"><i class="bi bi-download me-1"></i> Baixar JSON</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-warning border-0 shadow-sm">
+              <h5 class="alert-heading"><i class="bi bi-info-circle"></i> Como usar:</h5>
+              <ol class="mb-0 ps-3">
+                <li>Copie o Prompt e envie para a IA.</li>
+                <li>Cole a resposta JSON dela dentro do arquivo baixado (array <code>capitulos</code>).</li>
+                <li>Abra o arquivo no menu inicial.</li>
+              </ol>
+            </div>
+          </div>
+
+          <div v-else-if="screen === 'reading'" class="container py-5 flex-grow-1" style="max-width: 800px">
+            
+            <div v-if="currentIndex === -1" class="text-center animate-fade">
+              <h1 class="display-4 fw-bold mb-2" :style="{ color: settings.customColors.accent }">
+                {{ novelData.definicao_obra?.titulo || "Sem Título" }}
+              </h1>
+              <p class="fst-italic opacity-75 mb-4">
+                {{ novelData.definicao_obra?.autor || "IA" }} | {{ novelData.definicao_obra?.data_criacao }}
+              </p>
+
+              <div v-if="settings.promptsVisible && novelData.capa && novelData.capa.prompt_html" class="prompt-box p-3 mb-4 text-start rounded">
+                <strong>🖼️ Prompt Capa:</strong>
+                <span v-html="novelData.capa.prompt_html"></span>
+              </div>
+
+              <div class="card shadow-sm border-0 mb-4" :style="{ backgroundColor: 'rgba(0,0,0,0.05)' }">
+                <div class="card-body text-start p-4">
+                  <h5 class="card-title fw-bold">Sinopse</h5>
+                  <div v-html="novelData.definicao_obra?.sinopse_html || 'Sem sinopse.'"></div>
+                </div>
+              </div>
+
+              <div class="d-flex flex-wrap justify-content-center gap-2 mb-4">
+                <span v-for="tag in allTags" class="badge rounded-pill text-bg-secondary bg-opacity-75">{{ tag }}</span>
+              </div>
+
+              <div v-if="novelData.definicao_obra?.arcos?.length" class="mt-5 text-start">
+                  <h4 class="mb-3 border-bottom pb-2" :style="{ color: settings.customColors.accent }">
+                      <i class="bi bi-map"></i> Planejamento
+                  </h4>
+                  <div class="d-flex flex-column gap-3">
+                      <div v-for="(arco, idx) in novelData.definicao_obra.arcos" :key="idx" class="d-flex bg-transparent">
+                           <div class="me-3 rounded-pill" :style="{ minWidth: '4px', backgroundColor: settings.customColors.accent }"></div>
+                           <div>
+                               <h5 class="fw-bold mb-1">{{ arco.nome }}</h5>
+                               <div v-html="arco.descricao_html" class="opacity-75 small"></div>
+                           </div>
+                      </div>
+                  </div>
+              </div>
+            </div>
+
+            <div v-else>
+              <div class="border-bottom mb-4 pb-2">
+                <small class="text-uppercase fw-bold opacity-75" :style="{ color: settings.customColors.accent }">
+                  Capítulo {{ currentChapter.numero }}
+                </small>
+                <h2 class="fw-bold mt-1">{{ currentChapter.titulo }}</h2>
+              </div>
+
+              <div v-if="settings.promptsVisible && currentChapter.prompt_ilustracao_html" class="prompt-box p-3 mb-4 rounded">
+                <strong>🖌️ Prompt:</strong>
+                <span v-html="currentChapter.prompt_ilustracao_html"></span>
+              </div>
+
+              <div class="chapter-content" v-html="currentChapter.texto_html"></div>
+            </div>
+
+            <div class="d-flex justify-content-between mt-5 pt-3 border-top">
+              <button class="btn btn-light shadow-sm px-4" @click="navigate(-1)" :disabled="currentIndex === -1">
+                <i class="bi bi-arrow-left"></i> Anterior
+              </button>
+              <button class="btn btn-light shadow-sm px-4" @click="navigate(1)" :disabled="isLastChapter">
+                Próximo <i class="bi bi-arrow-right"></i>
+              </button>
+            </div>
+          </div>
+        </transition>
+
+        <button
+          v-if="screen === 'reading'"
+          class="btn btn-primary rounded-circle shadow position-fixed bottom-0 end-0 m-4 z-2 d-flex align-items-center justify-content-center"
+          style="width: 60px; height: 60px;"
+          type="button"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#menuOffcanvas"
+        >
+          <i class="bi bi-list fs-4"></i>
+        </button>
+      </div>
+
+      <div class="offcanvas offcanvas-end shadow" tabindex="-1" id="menuOffcanvas">
+        <div class="offcanvas-header bg-light">
+          <h5 class="offcanvas-title fw-bold"><i class="bi bi-sliders"></i> Configurações</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body d-flex flex-column gap-4">
+          
+          <section>
+            <h6 class="text-uppercase text-muted small fw-bold mb-2">Ferramentas</h6>
+            <button class="btn w-100 mb-2" :class="settings.promptsVisible ? 'btn-warning' : 'btn-outline-secondary'" @click="togglePrompts">
+              <i class="bi bi-image"></i> {{ settings.promptsVisible ? "Ocultar Prompts" : "Ver Prompts" }}
+            </button>
+          </section>
+
+          <section>
+            <h6 class="text-uppercase text-muted small fw-bold mb-2">Tipografia</h6>
+            <div class="btn-group w-100 mb-2">
+              <button class="btn btn-outline-primary" :class="{active: settings.fontType === 'serif'}" @click="settings.fontType = 'serif'">Serifa</button>
+              <button class="btn btn-outline-primary" :class="{active: settings.fontType === 'sans'}" @click="settings.fontType = 'sans'">Sans</button>
+              <button class="btn btn-outline-primary" :class="{active: settings.fontType === 'cursive'}" @click="settings.fontType = 'cursive'" title="Dancing Script">Cursiva</button>
+            </div>
+            
+            <div class="d-flex align-items-center gap-2 mb-2">
+              <button class="btn btn-sm btn-outline-secondary" @click="adjustSize(-1)">A-</button>
+              <span class="flex-grow-1 text-center small">{{ settings.fontSize }}px</span>
+              <button class="btn btn-sm btn-outline-secondary" @click="adjustSize(1)">A+</button>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-secondary" @click="adjustLineHeight(-0.1)"><i class="bi bi-arrows-collapse"></i></button>
+              <span class="flex-grow-1 text-center small">{{ settings.lineHeight.toFixed(1) }}</span>
+              <button class="btn btn-sm btn-outline-secondary" @click="adjustLineHeight(0.1)"><i class="bi bi-arrows-expand"></i></button>
+            </div>
+          </section>
+
+          <section>
+            <h6 class="text-uppercase text-muted small fw-bold mb-2">Tema</h6>
+            <div class="d-grid gap-2" style="grid-template-columns: repeat(6, 1fr)">
+              <button v-for="(t, idx) in themes" :key="idx"
+                class="btn p-0 border position-relative"
+                :style="{ backgroundColor: idx === 5 ? 'transparent' : t.bg, backgroundImage: idx === 5 ? 'conic-gradient(red, yellow, green, cyan, blue, magenta, red)' : 'none', height: '30px', borderRadius: '50%' }"
+                @click="applyTheme(idx)">
+                <i v-if="settings.themeIndex === idx" class="bi bi-check text-white position-absolute top-50 start-50 translate-middle" style="text-shadow: 0 0 3px black"></i>
+              </button>
+            </div>
+
+            <div v-if="settings.themeIndex === 5" class="mt-3 p-2 bg-light rounded">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <small>Fundo</small> <input type="color" class="form-control form-control-color form-control-sm" v-model="settings.customColors.bg" />
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <small>Texto</small> <input type="color" class="form-control form-control-color form-control-sm" v-model="settings.customColors.text" />
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <small>Destaque</small> <input type="color" class="form-control form-control-color form-control-sm" v-model="settings.customColors.accent" />
+              </div>
+              <button class="btn btn-sm btn-outline-dark w-100" @click="randomizeTheme"><i class="bi bi-dice-5"></i> Randomizar</button>
+            </div>
+          </section>
+
+          <section class="flex-grow-1 d-flex flex-column" style="min-height: 150px">
+            <h6 class="text-uppercase text-muted small fw-bold mb-2">Navegação</h6>
+            <div class="list-group flex-grow-1 overflow-auto" style="max-height: 200px">
+              <button class="list-group-item list-group-item-action py-2" :class="{active: currentIndex === -1}" @click="jumpTo(-1)">
+                <small>📖 Capa / Info</small>
+              </button>
+              <button v-for="(cap, idx) in novelData?.capitulos" :key="idx"
+                class="list-group-item list-group-item-action py-2"
+                :class="{active: currentIndex === idx}"
+                @click="jumpTo(idx)">
+                <small>{{ cap.numero }}. {{ cap.titulo }}</small>
+              </button>
+            </div>
+          </section>
+
+          <button class="btn btn-danger mt-auto" @click="goHome"><i class="bi bi-house"></i> Início</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      const { createApp, ref, computed, reactive, watch, onMounted } = Vue;
+
+      const emptyTemplate = {
+        seed: { genero: "", observacoes: [] },
+        motor_ia: {
+          descricao: "Este bloco contém as instruções internas para qualquer IA operar este arquivo como gerador e continuador de Light Novel.",
+          modo_operacao: [
+            "Este JSON é simultaneamente seed, save canônico, story bible e prompt mestre.",
+            "Preencha: meta, definicao_obra, mundo, personagens_principais, arcos e sistemas.",
+            "Depois de inicializar, gere o Capítulo 1 completo.",
+            "Sempre forneça apenas blocos JSON para o usuário colar manualmente.",
+            "Respeite estritamente o tom, temas e limites definidos em 'seed'.",
+          ],
+          regras_continuidade: ["Este arquivo é a única fonte da verdade."],
+          politica_de_saida: {
+            formato: "Sempre retornar apenas JSON parcial para colagem manual.",
+            proibicoes: ["Não reescrever o JSON completo.", "Não gerar capítulos fora do formato definido."],
+          },
+        },
+        meta: { objetivo_save: "Prompt mestre" },
+        definicao_obra: { autor: "", titulo: "", sinopse_html: "", arcos: [] },
+        mundo: { descricao_html: "", racas: [], guildas_e_organizacoes: [] },
+        personagens_principais: [],
+        controle_contexto: {
+          regra_atualizacao: "O usuário cola manualmente todos os novos capítulos no array 'capitulos'. A IA deve fornecer somente o objeto do capítulo.",
+          estrutura_capitulo: { numero: "integer", titulo: "string", prompt_ilustracao_html: "string", texto_html: "string" },
+          instrucoes_ia: "Se apenas 'seed' estiver preenchido, gere tudo antes do Cap 1."
+        },
+        capa: { prompt_html: "" }, // ADICIONADO PARA EVITAR ERROS
+        capitulos: [],
+      };
+
+      const themes = [
+        { bg: "#f5f2ea", text: "#2c2c2c", accent: "#8b4513" },
+        { bg: "#212529", text: "#e9ecef", accent: "#fd7e14" },
+        { bg: "#ffffff", text: "#000000", accent: "#000000" },
+        { bg: "#0f172a", text: "#94a3b8", accent: "#38bdf8" },
+        { bg: "#e8f5e9", text: "#1b5e20", accent: "#198754" },
+        { bg: "custom", text: "custom", accent: "custom" },
+      ];
+
+      createApp({
+        setup() {
+          const screen = ref("start");
+          const novelData = ref({ ...emptyTemplate });
+          const template = reactive(JSON.parse(JSON.stringify(emptyTemplate)));
+          const obsText = ref("");
+          const fileInput = ref(null);
+
+          const settings = reactive({
+            fontSize: 19,
+            lineHeight: 1.8,
+            fontType: "serif",
+            themeIndex: 0,
+            promptsVisible: false,
+            customColors: { bg: "#f5f2ea", text: "#333333", accent: "#8b4513" },
+          });
+          const currentIndex = ref(-1);
+
+          const jsonPreview = computed(() => {
+            template.seed.observacoes = obsText.value.split("\n").filter((l) => l.trim());
+            return JSON.stringify(template, null, 2);
+          });
+
+          const currentChapter = computed(() => novelData.value.capitulos[currentIndex.value] || {});
+
+          const allTags = computed(() => {
+            const tags = [];
+            if (novelData.value.seed?.genero) tags.push(novelData.value.seed.genero);
+            const obs = novelData.value.seed?.observacoes || [];
+            return [...tags, ...obs];
+          });
+
+          const isLastChapter = computed(() => {
+            return !novelData.value.capitulos?.length || currentIndex.value === novelData.value.capitulos.length - 1;
+          });
+
+          const themeStyles = computed(() => {
+            const t = settings.themeIndex === 5 ? settings.customColors : themes[settings.themeIndex];
+            let fontFamily = "'Roboto', sans-serif";
+            if (settings.fontType === 'serif') fontFamily = "'Merriweather', serif";
+            if (settings.fontType === 'cursive') fontFamily = "'Dancing Script', cursive";
+
+            return {
+              backgroundColor: t.bg,
+              color: t.text,
+              "--bs-primary": t.accent, 
+              "--bs-link-color": t.accent,
+              fontFamily: fontFamily,
+              fontSize: settings.fontSize + "px",
+              lineHeight: settings.lineHeight,
+            };
+          });
+
+          const startCreator = () => { screen.value = "creator"; };
+          const goHome = () => location.reload();
+
+          const handleFileUpload = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              try {
+                novelData.value = JSON.parse(e.target.result);
+                initReader();
+              } catch (err) { alert("JSON Inválido"); }
+            };
+            reader.readAsText(file);
+          };
+
+          const initReader = () => {
+            screen.value = "reading";
+            if (!novelData.value.capitulos) novelData.value.capitulos = [];
+            if (currentIndex.value === -1 && novelData.value.capitulos.length === 0) currentIndex.value = -1;
+          };
+
+          const navigate = (dir) => {
+            currentIndex.value += dir;
+            window.scrollTo(0, 0);
+            const el = document.getElementById("menuOffcanvas");
+            const bsOffcanvas = bootstrap.Offcanvas.getInstance(el);
+            if (bsOffcanvas) bsOffcanvas.hide();
+          };
+
+          const jumpTo = (idx) => {
+            currentIndex.value = idx;
+            window.scrollTo(0, 0);
+            const el = document.getElementById("menuOffcanvas");
+            const bsOffcanvas = bootstrap.Offcanvas.getInstance(el);
+            if (bsOffcanvas) bsOffcanvas.hide();
+          };
+
+          const copyToClipboard = () => {
+            const text = "Aqui está o arquivo de configuração... (ver prompt original)\n\n" + jsonPreview.value;
+            navigator.clipboard.writeText(text).then(() => alert("Copiado!"));
+          };
+
+          const downloadJson = () => {
+            const blob = new Blob([jsonPreview.value], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "template_ln.json";
+            link.click();
+          };
+
+          const adjustSize = (d) => { settings.fontSize = Math.max(12, settings.fontSize + d); };
+          const adjustLineHeight = (d) => { settings.lineHeight = Math.max(1, Math.min(3, settings.lineHeight + d)); };
+          const togglePrompts = () => { settings.promptsVisible = !settings.promptsVisible; };
+          const applyTheme = (idx) => { settings.themeIndex = idx; };
+          const randomizeTheme = () => {
+            const r = () => "#" + Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0");
+            settings.customColors = { bg: r(), text: r(), accent: r() };
+          };
+
+          onMounted(() => {
+            const saved = localStorage.getItem("ln_reader_bootstrap");
+            if (saved) Object.assign(settings, JSON.parse(saved));
+          });
+
+          watch(settings, (newVal) => { localStorage.setItem("ln_reader_bootstrap", JSON.stringify(newVal)); }, { deep: true });
+
+          return {
+            screen, novelData, template, obsText, settings, currentIndex, themes,
+            jsonPreview, currentChapter, allTags, isLastChapter, themeStyles,
+            startCreator, goHome, handleFileUpload, navigate, jumpTo,
+            copyToClipboard, downloadJson, adjustSize, adjustLineHeight, togglePrompts, applyTheme, randomizeTheme,
+          };
+        },
+      }).mount("#app");
+    </script>
+  </body>
+</html>
