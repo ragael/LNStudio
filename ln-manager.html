@@ -4,34 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Light Novel Manager</title>
-    <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#8B5CF6">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="LN Manager">
-    <link rel="apple-touch-icon" href="favicon.svg">
-    <meta name="description" content="Gerenciador profissional de Light Novels geradas por IA">
-    <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- React -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Puter.js for AI image generation -->
-    <script src="https://js.puter.com/v2/"></script>
-    
     <style>
         body {
             background: #0a0a0a;
             color: #e5e5e5;
-            min-height: 100vh;
         }
         .glass-effect {
             background: rgba(20, 20, 20, 0.8);
@@ -56,227 +36,44 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // ==================== COVER GENERATOR ====================
-        const CoverGenerator = {
-            generatePrompt: (ln) => {
-                const genres = ln.genres.slice(0, 3).join(', ');
-                const protagonist = ln.continuityDB?.protagonist?.name || 'hero';
-                const setting = ln.continuityDB?.worldbuilding?.current_location || 'fantasy world';
-                
-                const styleMap = {
-                    'Isekai': 'anime fantasy illustration',
-                    'Ficção Científica': 'sci-fi digital art',
-                    'Cyberpunk': 'cyberpunk neon style',
-                    'Horror': 'dark horror manga style',
-                    'Romance': 'beautiful anime romance art'
-                };
-                
-                const style = styleMap[ln.genres[0]] || 'light novel cover art';
-                
-                return `${style}, ${genres} light novel cover, featuring ${protagonist} in ${setting}, professional book cover, detailed, vibrant colors, trending on artstation`;
-            },
-            
-            generateCoverBase64: async (ln) => {
-                const prompt = CoverGenerator.generatePrompt(ln);
-                
-                try {
-                    // Using Puter.js AI - FREE API
-                    const imageUrl = await puter.ai.txt2img(prompt, {
-                        model: 'flux',
-                        width: 512,
-                        height: 768
-                    });
-                    
-                    // Download image and convert to Base64
-                    const response = await fetch(imageUrl);
-                    const blob = await response.blob();
-                    
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                } catch (error) {
-                    console.error('Puter.js image generation failed:', error);
-                    throw error;
-                }
-            },
-            
-            downloadCover: (base64Data, filename) => {
-                const a = document.createElement('a');
-                a.href = base64Data;
-                a.download = filename;
-                a.click();
-            }
-        };
-
-        // ==================== PWA INSTALLER ====================
-        let deferredPrompt;
-        const PWAInstaller = {
-            init: () => {
-                window.addEventListener('beforeinstallprompt', (e) => {
-                    e.preventDefault();
-                    deferredPrompt = e;
-                    PWAInstaller.showInstallButton();
-                });
-
-                window.addEventListener('appinstalled', () => {
-                    console.log('PWA installed successfully');
-                    deferredPrompt = null;
-                });
-            },
-            
-            showInstallButton: () => {
-                // Will be shown in Dashboard
-                const event = new CustomEvent('pwa-installable');
-                window.dispatchEvent(event);
-            },
-            
-            install: async () => {
-                if (!deferredPrompt) {
-                    alert('App já está instalado ou navegador não suporta instalação.');
-                    return;
-                }
-                
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`User response: ${outcome}`);
-                deferredPrompt = null;
-            }
-        };
-
-        // ==================== INDEXEDDB MANAGER ====================
-        const DB_NAME = 'LightNovelManagerDB';
-        const DB_VERSION = 1;
-        const STORE_NAME = 'lightNovels';
-
-        const IndexedDBManager = {
-            db: null,
-            
-            init: async () => {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(DB_NAME, DB_VERSION);
-                    
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => {
-                        IndexedDBManager.db = request.result;
-                        resolve(request.result);
-                    };
-                    
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains(STORE_NAME)) {
-                            const objectStore = db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                            objectStore.createIndex('title', 'title', { unique: false });
-                            objectStore.createIndex('createdAt', 'createdAt', { unique: false });
-                        }
-                    };
-                });
-            },
-            
-            getLNs: async () => {
-                return new Promise((resolve, reject) => {
-                    const transaction = IndexedDBManager.db.transaction([STORE_NAME], 'readonly');
-                    const objectStore = transaction.objectStore(STORE_NAME);
-                    const request = objectStore.getAll();
-                    
-                    request.onsuccess = () => resolve(request.result || []);
-                    request.onerror = () => reject(request.error);
-                });
-            },
-            
-            saveLN: async (ln) => {
-                return new Promise((resolve, reject) => {
-                    const transaction = IndexedDBManager.db.transaction([STORE_NAME], 'readwrite');
-                    const objectStore = transaction.objectStore(STORE_NAME);
-                    const request = objectStore.put(ln);
-                    
-                    request.onsuccess = () => resolve(ln);
-                    request.onerror = () => reject(request.error);
-                });
-            },
-            
-            deleteLN: async (id) => {
-                return new Promise((resolve, reject) => {
-                    const transaction = IndexedDBManager.db.transaction([STORE_NAME], 'readwrite');
-                    const objectStore = transaction.objectStore(STORE_NAME);
-                    const request = objectStore.delete(id);
-                    
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            },
-            
-            // Migration from localStorage
-            migrateFromLocalStorage: async () => {
-                try {
-                    const oldData = localStorage.getItem('lightNovels');
-                    if (oldData) {
-                        const lns = JSON.parse(oldData);
-                        for (const ln of lns) {
-                            await IndexedDBManager.saveLN(ln);
-                        }
-                        console.log('Migration completed:', lns.length, 'light novels migrated');
-                        // Keep localStorage as backup for now
-                        // localStorage.removeItem('lightNovels');
-                    }
-                } catch (error) {
-                    console.error('Migration error:', error);
-                }
-            }
-        };
-
-        // ==================== STORAGE MANAGER (IndexedDB wrapper) ====================
+        // ==================== STORAGE MANAGER ====================
         const StorageManager = {
-            initialized: false,
-            
-            ensureInit: async () => {
-                if (!StorageManager.initialized) {
-                    await IndexedDBManager.init();
-                    await IndexedDBManager.migrateFromLocalStorage();
-                    StorageManager.initialized = true;
-                }
+            getLNs: () => {
+                const data = localStorage.getItem('lightNovels');
+                return data ? JSON.parse(data) : [];
             },
-            
-            getLNs: async () => {
-                await StorageManager.ensureInit();
-                return await IndexedDBManager.getLNs();
+            saveLNs: (lns) => {
+                localStorage.setItem('lightNovels', JSON.stringify(lns));
             },
-            
-            createLN: async (ln) => {
-                await StorageManager.ensureInit();
+            createLN: (ln) => {
+                const lns = StorageManager.getLNs();
                 const newLN = {
                     ...ln,
                     id: Date.now().toString(),
                     createdAt: new Date().toISOString(),
                     chapters: [],
-                    continuityDB: null,
-                    coverBase64: null, // Changed from coverUrl to coverBase64
-                    lastReadChapter: null // Track last read chapter
+                    continuityDB: null
                 };
-                return await IndexedDBManager.saveLN(newLN);
+                lns.push(newLN);
+                StorageManager.saveLNs(lns);
+                return newLN;
             },
-            
-            updateLN: async (id, updates) => {
-                await StorageManager.ensureInit();
-                const lns = await IndexedDBManager.getLNs();
-                const ln = lns.find(l => l.id === id);
-                if (ln) {
-                    const updated = { ...ln, ...updates };
-                    return await IndexedDBManager.saveLN(updated);
+            updateLN: (id, updates) => {
+                const lns = StorageManager.getLNs();
+                const index = lns.findIndex(ln => ln.id === id);
+                if (index !== -1) {
+                    lns[index] = { ...lns[index], ...updates };
+                    StorageManager.saveLNs(lns);
+                    return lns[index];
                 }
                 return null;
             },
-            
-            deleteLN: async (id) => {
-                await StorageManager.ensureInit();
-                return await IndexedDBManager.deleteLN(id);
+            deleteLN: (id) => {
+                const lns = StorageManager.getLNs().filter(ln => ln.id !== id);
+                StorageManager.saveLNs(lns);
             },
-            
-            addChapter: async (lnId, chapterData) => {
-                await StorageManager.ensureInit();
-                const lns = await IndexedDBManager.getLNs();
+            addChapter: (lnId, chapterData) => {
+                const lns = StorageManager.getLNs();
                 const ln = lns.find(l => l.id === lnId);
                 if (ln) {
                     const chapter = {
@@ -292,14 +89,13 @@
                     };
                     ln.chapters.push(chapter);
                     ln.continuityDB = chapterData.continuity;
-                    return await IndexedDBManager.saveLN(ln);
+                    StorageManager.saveLNs(lns);
+                    return ln;
                 }
                 return null;
             },
-            
-            exportLN: async (id) => {
-                await StorageManager.ensureInit();
-                const lns = await IndexedDBManager.getLNs();
+            exportLN: (id) => {
+                const lns = StorageManager.getLNs();
                 const ln = lns.find(l => l.id === id);
                 if (ln) {
                     const dataStr = JSON.stringify(ln, null, 2);
@@ -311,14 +107,15 @@
                     linkElement.click();
                 }
             },
-            
-            importLN: async (jsonData) => {
-                await StorageManager.ensureInit();
+            importLN: (jsonData) => {
                 try {
                     const ln = JSON.parse(jsonData);
+                    const lns = StorageManager.getLNs();
                     ln.id = Date.now().toString();
                     ln.createdAt = new Date().toISOString();
-                    return await IndexedDBManager.saveLN(ln);
+                    lns.push(ln);
+                    StorageManager.saveLNs(lns);
+                    return ln;
                 } catch (e) {
                     console.error('Import error:', e);
                     return null;
@@ -736,49 +533,28 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             const [lns, setLNs] = useState([]);
             const [importData, setImportData] = useState('');
             const [showImport, setShowImport] = useState(false);
-            const [showPWAInstall, setShowPWAInstall] = useState(false);
-            const [loading, setLoading] = useState(true);
 
             useEffect(() => {
-                loadLNs();
-                
-                // Listen for PWA install availability
-                const handlePWAInstallable = () => setShowPWAInstall(true);
-                window.addEventListener('pwa-installable', handlePWAInstallable);
-                
-                return () => window.removeEventListener('pwa-installable', handlePWAInstallable);
+                setLNs(StorageManager.getLNs());
             }, []);
 
-            const loadLNs = async () => {
-                setLoading(true);
-                try {
-                    const data = await StorageManager.getLNs();
-                    setLNs(data);
-                } catch (error) {
-                    console.error('Error loading LNs:', error);
-                    alert('Erro ao carregar light novels');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleDelete = async (id, e) => {
+            const handleDelete = (id, e) => {
                 e.stopPropagation();
                 if (confirm('Tem certeza que deseja deletar esta Light Novel?')) {
-                    await StorageManager.deleteLN(id);
-                    await loadLNs();
+                    StorageManager.deleteLN(id);
+                    setLNs(StorageManager.getLNs());
                 }
             };
 
-            const handleExport = async (id, e) => {
+            const handleExport = (id, e) => {
                 e.stopPropagation();
-                await StorageManager.exportLN(id);
+                StorageManager.exportLN(id);
             };
 
-            const handleImport = async () => {
-                const ln = await StorageManager.importLN(importData);
+            const handleImport = () => {
+                const ln = StorageManager.importLN(importData);
                 if (ln) {
-                    await loadLNs();
+                    setLNs(StorageManager.getLNs());
                     setImportData('');
                     setShowImport(false);
                     alert('Light Novel importada com sucesso!');
@@ -790,44 +566,27 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-7xl mx-auto">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12 gap-4">
+                        <div className="flex items-center justify-between mb-12">
                             <div>
-                                <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                                <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
                                     Light Novel Manager
                                 </h1>
                                 <p className="text-gray-400 mt-2">Gerencie suas histórias com IA</p>
                             </div>
-                            <div className="flex flex-wrap gap-2 md:gap-3">
-                                {showPWAInstall && (
-                                    <button
-                                        onClick={() => {
-                                            PWAInstaller.install();
-                                            setShowPWAInstall(false);
-                                        }}
-                                        className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 md:px-6 py-2 md:py-3 rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm md:text-base"
-                                        title="Instalar como app"
-                                    >
-                                        <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        <span className="hidden sm:inline">Instalar App</span>
-                                        <span className="sm:hidden">App</span>
-                                    </button>
-                                )}
+                            <div className="flex gap-3">
                                 <button
                                     onClick={() => setShowImport(!showImport)}
-                                    className="glass-effect px-4 md:px-6 py-2 md:py-3 rounded-lg hover-glow transition-all flex items-center gap-2 text-sm md:text-base"
+                                    className="glass-effect px-6 py-3 rounded-lg hover-glow transition-all flex items-center gap-2"
                                 >
                                     <Icons.Upload />
-                                    <span className="hidden sm:inline">Importar</span>
+                                    Importar
                                 </button>
                                 <button
                                     onClick={onCreateNew}
-                                    className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 md:px-6 py-2 md:py-3 rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm md:text-base"
+                                    className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 rounded-lg hover:opacity-90 transition-all flex items-center gap-2"
                                 >
                                     <Icons.Plus />
-                                    <span className="hidden sm:inline">Nova Light Novel</span>
-                                    <span className="sm:hidden">Nova</span>
+                                    Nova Light Novel
                                 </button>
                             </div>
                         </div>
@@ -858,64 +617,43 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                             </div>
                         )}
 
-                        {loading ? (
-                            <div className="glass-effect p-12 rounded-lg text-center">
-                                <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent mb-4"></div>
-                                <h3 className="text-xl text-gray-400">Carregando...</h3>
-                            </div>
-                        ) : lns.length === 0 ? (
+                        {lns.length === 0 ? (
                             <div className="glass-effect p-12 rounded-lg text-center">
                                 <Icons.Book />
                                 <h3 className="text-xl text-gray-400 mt-4">Nenhuma Light Novel criada ainda</h3>
                                 <p className="text-gray-500 mt-2">Comece criando sua primeira história!</p>
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {lns.map(ln => (
                                     <div
                                         key={ln.id}
                                         onClick={() => onSelectLN(ln)}
-                                        className="glass-effect rounded-lg hover-glow cursor-pointer transition-all fade-in overflow-hidden"
+                                        className="glass-effect p-6 rounded-lg hover-glow cursor-pointer transition-all fade-in"
                                     >
-                                        {/* Cover Image */}
-                                        {ln.coverBase64 && (
-                                            <div className="w-full h-40 md:h-48 overflow-hidden bg-black/50">
-                                                <img 
-                                                    src={ln.coverBase64} 
-                                                    alt={`Capa de ${ln.title}`}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                    }}
-                                                />
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="text-xl font-semibold text-purple-300">{ln.title}</h3>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={(e) => handleExport(ln.id, e)}
+                                                    className="p-2 hover:bg-white/10 rounded transition-colors"
+                                                    title="Exportar"
+                                                >
+                                                    <Icons.Download />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => handleDelete(ln.id, e)}
+                                                    className="p-2 hover:bg-red-500/20 rounded transition-colors text-red-400"
+                                                    title="Deletar"
+                                                >
+                                                    <Icons.Trash />
+                                                </button>
                                             </div>
-                                        )}
-                                        
-                                        <div className="p-4 md:p-6">
-                                            <div className="flex items-start justify-between mb-3">
-                                                <h3 className="text-lg md:text-xl font-semibold text-purple-300 flex-1 pr-2">{ln.title}</h3>
-                                                <div className="flex gap-1 md:gap-2 flex-shrink-0">
-                                                    <button
-                                                        onClick={(e) => handleExport(ln.id, e)}
-                                                        className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors"
-                                                        title="Exportar"
-                                                    >
-                                                        <Icons.Download />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => handleDelete(ln.id, e)}
-                                                        className="p-1.5 md:p-2 hover:bg-red-500/20 rounded transition-colors text-red-400"
-                                                        title="Deletar"
-                                                    >
-                                                        <Icons.Trash />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-gray-400">
-                                                <p><span className="text-gray-500">Gêneros:</span> {ln.genres.join(', ')}</p>
-                                                <p><span className="text-gray-500">Capítulos:</span> {ln.chapters.length}</p>
-                                                <p><span className="text-gray-500">Criada em:</span> {new Date(ln.createdAt).toLocaleDateString('pt-BR')}</p>
-                                            </div>
+                                        </div>
+                                        <div className="space-y-2 text-sm text-gray-400">
+                                            <p><span className="text-gray-500">Gêneros:</span> {ln.genres.join(', ')}</p>
+                                            <p><span className="text-gray-500">Capítulos:</span> {ln.chapters.length}</p>
+                                            <p><span className="text-gray-500">Criada em:</span> {new Date(ln.createdAt).toLocaleDateString('pt-BR')}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -987,12 +725,12 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                 }));
             };
 
-            const handleSubmit = async () => {
+            const handleSubmit = () => {
                 if (!config.title.trim()) {
                     alert('Por favor, dê um título para sua Light Novel');
                     return;
                 }
-                const ln = await StorageManager.createLN(config);
+                const ln = StorageManager.createLN(config);
                 onComplete(ln);
             };
 
@@ -1007,8 +745,8 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                             Voltar
                         </button>
 
-                        <div className="glass-effect p-6 md:p-8 rounded-lg">
-                            <h2 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-6">
+                        <div className="glass-effect p-8 rounded-lg">
+                            <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-6">
                                 Criar Nova Light Novel
                             </h2>
 
@@ -1161,25 +899,25 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 </div>
                             )}
 
-                            <div className="flex flex-col sm:flex-row justify-between gap-3 mt-8">
+                            <div className="flex justify-between mt-8">
                                 <button
                                     onClick={() => setStep(Math.max(1, step - 1))}
                                     disabled={step === 1}
-                                    className="glass-effect px-4 md:px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed order-2 sm:order-1"
+                                    className="glass-effect px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Anterior
                                 </button>
                                 {step < 3 ? (
                                     <button
                                         onClick={() => setStep(step + 1)}
-                                        className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 md:px-6 py-3 rounded-lg order-1 sm:order-2"
+                                        className="bg-gradient-to-r from-purple-500 to-pink-500 px-6 py-3 rounded-lg"
                                     >
                                         Próximo
                                     </button>
                                 ) : (
                                     <button
                                         onClick={handleSubmit}
-                                        className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 md:px-6 py-3 rounded-lg order-1 sm:order-2"
+                                        className="bg-gradient-to-r from-green-500 to-emerald-500 px-6 py-3 rounded-lg"
                                     >
                                         Criar Light Novel
                                     </button>
@@ -1194,20 +932,14 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         // ==================== LN MANAGER ====================
         const LNManager = ({ ln, onBack }) => {
             const [currentLN, setCurrentLN] = useState(ln);
-            const [view, setView] = useState('main'); // main, prompt, addChapter, read, editDB, coverGen
+            const [view, setView] = useState('main'); // main, prompt, addChapter, read, editDB
             const [selectedChapter, setSelectedChapter] = useState(null);
             const [responseText, setResponseText] = useState('');
             const [editDBText, setEditDBText] = useState('');
-            // Estados para addChapter
-            const [validationResult, setValidationResult] = useState(null);
-            // Estados para coverGen
-            const [generatingCover, setGeneratingCover] = useState(false);
-            const [coverPreviewBase64, setCoverPreviewBase64] = useState(null);
 
-            const refreshLN = async () => {
-                const lns = await StorageManager.getLNs();
-                const updated = lns.find(l => l.id === currentLN.id);
-                if (updated) setCurrentLN(updated);
+            const refreshLN = () => {
+                const updated = StorageManager.getLNs().find(l => l.id === currentLN.id);
+                setCurrentLN(updated);
             };
 
             const copyToClipboard = (text) => {
@@ -1277,6 +1009,10 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             }
 
             if (view === 'addChapter') {
+                const [validationResult, setValidationResult] = useState(null);
+                const [showCorrectionPrompt, setShowCorrectionPrompt] = useState(false);
+                const [correctionPrompt, setCorrectionPrompt] = useState('');
+
                 const handleValidate = () => {
                     const extracted = JSONValidator.extractJSON(responseText);
                     const result = JSONValidator.validate(extracted);
@@ -1284,22 +1020,21 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                     
                     if (!result.valid) {
                         const prompt = JSONValidator.generateCorrectionPrompt(responseText, result.error);
-                        // Armazenar o prompt no validationResult para uso posterior
-                        setValidationResult({...result, correctionPrompt: prompt});
+                        setCorrectionPrompt(prompt);
                     }
                 };
 
-                const handleAddChapterFinal = async () => {
+                const handleAddChapterFinal = () => {
                     const chapterData = {
                         content: validationResult.data.chapter.content,
                         metadata: validationResult.data.metadata,
                         continuity: validationResult.data.continuity
                     };
                     
-                    await StorageManager.addChapter(currentLN.id, chapterData);
+                    StorageManager.addChapter(currentLN.id, chapterData);
                     setResponseText('');
                     setValidationResult(null);
-                    await refreshLN();
+                    refreshLN();
                     setView('main');
                     alert('Capítulo adicionado com sucesso!');
                 };
@@ -1490,7 +1225,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                                 <h3 className="text-lg font-semibold text-purple-300">Prompt de Correção</h3>
                                                 <button
                                                     onClick={() => {
-                                                        navigator.clipboard.writeText(validationResult.correctionPrompt || '');
+                                                        navigator.clipboard.writeText(correctionPrompt);
                                                         alert('Prompt copiado!');
                                                     }}
                                                     className="bg-purple-600 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700 text-sm"
@@ -1504,7 +1239,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                             </p>
                                             <div className="bg-black/50 border border-gray-700 rounded-lg p-4 max-h-96 overflow-y-auto">
                                                 <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono">
-                                                    {validationResult.correctionPrompt || 'Erro ao gerar prompt de correção'}
+                                                    {correctionPrompt}
                                                 </pre>
                                             </div>
                                         </div>
@@ -1535,20 +1270,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             }
 
             if (view === 'editDB') {
-                const handleSaveDB = async () => {
-                    try {
-                        // Parse JSON string back to object before saving
-                        const parsedDB = JSON.parse(editDBText);
-                        await StorageManager.updateLN(currentLN.id, { continuityDB: parsedDB });
-                        await refreshLN();
-                        setView('main');
-                        alert('Banco de dados atualizado!');
-                    } catch (error) {
-                        alert('Erro: JSON inválido! Verifique a sintaxe.');
-                        console.error('JSON parse error:', error);
-                    }
-                };
-
                 return (
                     <div className="min-h-screen p-8">
                         <div className="max-w-4xl mx-auto">
@@ -1589,129 +1310,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             }
 
             if (view === 'read') {
-                return <Reader ln={currentLN} onBack={() => setView('main')} initialChapter={selectedChapter} />;
-            }
-
-            if (view === 'coverGen') {
-                const handleGenerateCover = async () => {
-                    setGeneratingCover(true);
-                    try {
-                        const base64 = await CoverGenerator.generateCoverBase64(currentLN);
-                        setCoverPreviewBase64(base64);
-                    } catch (error) {
-                        alert('Erro ao gerar capa. Verifique se está conectado à internet.');
-                        console.error(error);
-                    } finally {
-                        setGeneratingCover(false);
-                    }
-                };
-
-                const handleSaveCover = async () => {
-                    await StorageManager.updateLN(currentLN.id, { coverBase64: coverPreviewBase64 });
-                    await refreshLN();
-                    setView('main');
-                    alert('Capa salva com sucesso!');
-                };
-
-                const handleDownloadCover = () => {
-                    CoverGenerator.downloadCover(coverPreviewBase64, `${currentLN.title}-cover.png`);
-                };
-
-                return (
-                    <div className="min-h-screen p-8">
-                        <div className="max-w-4xl mx-auto">
-                            <button
-                                onClick={() => setView('main')}
-                                className="glass-effect px-4 py-2 rounded-lg mb-6 flex items-center gap-2"
-                            >
-                                <Icons.ArrowLeft />
-                                Voltar
-                            </button>
-
-                            <div className="glass-effect p-8 rounded-lg">
-                                <h2 className="text-2xl font-bold text-purple-300 mb-4">
-                                    Gerador de Capa - {currentLN.title}
-                                </h2>
-
-                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-                                    <p className="text-sm text-blue-200">
-                                        <strong>IA Gratuita:</strong> Usando Puter.js (Flux model). A capa será salva permanentemente no app (Base64).
-                                    </p>
-                                </div>
-
-                                {!coverPreviewBase64 ? (
-                                    <div className="text-center py-12">
-                                        <div className="mb-6">
-                                            <svg className="w-24 h-24 mx-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-xl font-semibold mb-2">Pronto para gerar sua capa?</h3>
-                                        <p className="text-gray-400 mb-6">
-                                            A IA criará uma capa baseada em: {currentLN.genres.slice(0, 3).join(', ')}
-                                        </p>
-                                        <button
-                                            onClick={handleGenerateCover}
-                                            disabled={generatingCover}
-                                            className="bg-gradient-to-r from-purple-500 to-pink-500 px-8 py-3 rounded-lg hover:opacity-90 disabled:opacity-50 font-semibold"
-                                        >
-                                            {generatingCover ? 'Gerando...' : 'Gerar Capa'}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        {generatingCover && (
-                                            <div className="text-center py-8">
-                                                <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
-                                                <p className="text-gray-400 mt-4">Gerando capa...</p>
-                                            </div>
-                                        )}
-                                        
-                                        {!generatingCover && (
-                                            <>
-                                                <div className="bg-black/50 border border-gray-700 rounded-lg p-4">
-                                                    <img 
-                                                        src={coverPreviewBase64} 
-                                                        alt="Capa gerada"
-                                                        className="w-full max-w-md mx-auto rounded-lg shadow-2xl"
-                                                    />
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-3 justify-center">
-                                                    <button
-                                                        onClick={() => {
-                                                            setCoverPreviewBase64(null);
-                                                            handleGenerateCover();
-                                                        }}
-                                                        className="glass-effect px-6 py-3 rounded-lg hover-glow"
-                                                    >
-                                                        🔄 Gerar Outra
-                                                    </button>
-                                                    <button
-                                                        onClick={handleDownloadCover}
-                                                        className="bg-blue-600 px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                                                    >
-                                                        <Icons.Download />
-                                                        Baixar Capa
-                                                    </button>
-                                                    <button
-                                                        onClick={handleSaveCover}
-                                                        className="bg-green-600 px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                        Salvar como Capa Oficial
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
+                return <Reader ln={currentLN} onBack={() => setView('main')} />;
             }
 
             return (
@@ -1738,10 +1337,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 <div className="flex gap-2">
                                     <button
                                         onClick={() => {
-                                            const dbText = typeof currentLN.continuityDB === 'string' 
-                                                ? currentLN.continuityDB 
-                                                : JSON.stringify(currentLN.continuityDB, null, 2);
-                                            setEditDBText(dbText);
+                                            setEditDBText(currentLN.continuityDB || '');
                                             setView('editDB');
                                         }}
                                         disabled={!currentLN.continuityDB}
@@ -1764,7 +1360,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                     <div className="text-3xl font-bold text-pink-300">
                                         {currentLN.elements.length}
                                     </div>
-                                    <div className="text-sm text-gray-400 mt-1">Elementos Selecionados</div>
+                                    <div className="text-sm text-gray-400 mt-1">Elementos</div>
                                 </div>
                                 <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-500/30">
                                     <div className="text-3xl font-bold text-blue-300">
@@ -1775,62 +1371,30 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <button
                                 onClick={() => setView('prompt')}
-                                className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
+                                className="glass-effect p-6 rounded-lg hover-glow transition-all text-left"
                             >
                                 <div className="flex items-center gap-3 mb-2">
                                     <Icons.Copy />
-                                    <h3 className="text-lg md:text-xl font-semibold">Gerar Prompt</h3>
+                                    <h3 className="text-xl font-semibold">Gerar Prompt</h3>
                                 </div>
-                                <p className="text-gray-400 text-xs md:text-sm">
+                                <p className="text-gray-400 text-sm">
                                     Copie o prompt para o próximo capítulo ({currentLN.chapters.length + 1})
                                 </p>
                             </button>
 
                             <button
                                 onClick={() => setView('addChapter')}
-                                className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
+                                className="glass-effect p-6 rounded-lg hover-glow transition-all text-left"
                             >
                                 <div className="flex items-center gap-3 mb-2">
                                     <Icons.Plus />
-                                    <h3 className="text-lg md:text-xl font-semibold">Adicionar Capítulo</h3>
+                                    <h3 className="text-xl font-semibold">Adicionar Capítulo</h3>
                                 </div>
-                                <p className="text-gray-400 text-xs md:text-sm">
+                                <p className="text-gray-400 text-sm">
                                     Cole a resposta da IA para processar
-                                </p>
-                            </button>
-
-                            <button
-                                onClick={() => setView('coverGen')}
-                                className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
-                            >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <h3 className="text-lg md:text-xl font-semibold">Gerar Capa</h3>
-                                </div>
-                                <p className="text-gray-400 text-xs md:text-sm">
-                                    IA gratuita cria capa automaticamente
-                                </p>
-                            </button>
-
-                            <button
-                                onClick={() => {
-                                    setSelectedChapter(null);
-                                    setView('read');
-                                }}
-                                disabled={currentLN.chapters.length === 0}
-                                className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Icons.BookOpen />
-                                    <h3 className="text-lg md:text-xl font-semibold">Modo Leitura</h3>
-                                </div>
-                                <p className="text-gray-400 text-xs md:text-sm">
-                                    {currentLN.chapters.length === 0 ? 'Adicione capítulos primeiro' : 'Ler seus capítulos'}
                                 </p>
                             </button>
                         </div>
@@ -1859,14 +1423,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                         >
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
-                                                    <div className="flex items-center gap-2 mb-2">
-                                                        <h3 className="font-semibold text-lg">Capítulo {chapter.number}</h3>
-                                                        {currentLN.lastReadChapter === chapter.number && (
-                                                            <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full border border-green-500/30">
-                                                                📖 Última leitura
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                    <h3 className="font-semibold text-lg mb-2">Capítulo {chapter.number}</h3>
                                                     
                                                     {/* Metadata Grid */}
                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
@@ -1915,19 +1472,8 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         };
 
         // ==================== READER ====================
-        const Reader = ({ ln, onBack, initialChapter = null }) => {
-            const [currentChapterIndex, setCurrentChapterIndex] = useState(() => {
-                if (initialChapter) {
-                    const index = ln.chapters.findIndex(ch => ch.number === initialChapter.number);
-                    return index !== -1 ? index : 0;
-                }
-                // Use last read chapter if available
-                if (ln.lastReadChapter) {
-                    const index = ln.chapters.findIndex(ch => ch.number === ln.lastReadChapter);
-                    if (index !== -1) return index;
-                }
-                return 0;
-            });
+        const Reader = ({ ln, onBack }) => {
+            const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
             const [settings, setSettings] = useState({
                 fontSize: 18,
                 lineHeight: 1.8,
@@ -1937,13 +1483,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             const [showSettings, setShowSettings] = useState(false);
 
             const currentChapter = ln.chapters[currentChapterIndex];
-
-            // Save last read chapter when it changes
-            useEffect(() => {
-                if (currentChapter) {
-                    StorageManager.updateLN(ln.id, { lastReadChapter: currentChapter.number });
-                }
-            }, [currentChapter, ln.id]);
 
             const themes = {
                 dark: { bg: 'bg-gray-900', text: 'text-gray-100' },
@@ -2117,35 +1656,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
 
         // Render
         ReactDOM.render(<App />, document.getElementById('root'));
-
-        // ==================== PWA INITIALIZATION ====================
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered:', registration);
-                        
-                        // Check for updates
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New service worker available, prompt user to refresh
-                                    if (confirm('Nova versão disponível! Recarregar para atualizar?')) {
-                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                        window.location.reload();
-                                    }
-                                }
-                            });
-                        });
-                    })
-                    .catch(err => console.log('SW registration failed:', err));
-            });
-        }
-
-        // Initialize PWA installer
-        PWAInstaller.init();
     </script>
 </body>
 </html>
