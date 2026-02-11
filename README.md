@@ -8,6 +8,21 @@ Um gerenciador profissional de Light Novels geradas por IA, com suporte para mú
 
 ## ✨ Funcionalidades
 
+### 📱 PWA (Progressive Web App)
+- ✅ **Instalar como app nativo** - Ícone na tela inicial
+- ✅ **Funciona offline** - Continua funcionando sem internet
+- ✅ **Carregamento rápido** - Cache inteligente
+- ✅ **Atualizações automáticas** - Notifica quando há nova versão
+- ✅ **Experiência nativa** - Abre em tela cheia
+
+### 🎨 Geração de Capas com IA
+- ✅ **IA 100% gratuita** - Usando Puter.js (Flux, DALL-E, Stable Diffusion)
+- ✅ **Sem API key necessária** - Funciona direto
+- ✅ **Automática** - Baseada nos dados da sua LN
+- ✅ **Customizável** - Regenere quantas vezes quiser
+- ✅ **Download** - Baixe a capa em alta resolução
+- ✅ **Preview** - Veja antes de salvar
+
 ### 📖 Gerenciamento Completo
 - ✅ Criar múltiplas Light Novels com configurações personalizadas
 - ✅ Formulário em 3 etapas para customização total
@@ -36,10 +51,13 @@ Um gerenciador profissional de Light Novels geradas por IA, com suporte para mú
 - ✅ Interface limpa e sem distrações
 
 ### 💾 Dados Persistentes
-- ✅ Tudo salvo em localStorage
+- ✅ Tudo salvo em **IndexedDB** (não localStorage!)
+- ✅ **Capas em Base64** - permanentes e offline
+- ✅ **Até 500MB+ de dados** (vs 5MB do localStorage)
 - ✅ Dados sobrevivem ao fechar o navegador
 - ✅ Backup/Restore via JSON
 - ✅ Sem necessidade de servidor
+- ✅ **Migração automática** do localStorage (se existir)
 
 ---
 
@@ -83,6 +101,32 @@ Um gerenciador profissional de Light Novels geradas por IA, com suporte para mú
 2. Ajuste fonte, tamanho, tema conforme preferir
 3. Navegue entre capítulos com os botões
 4. Aproveite sua história! 📖
+
+### 6️⃣ Gerar Capa (Opcional)
+
+1. Na tela da LN, clique em **"Gerar Capa"**
+2. Clique em **"Gerar Capa"** novamente
+3. Aguarde alguns segundos
+4. ✨ Capa gerada automaticamente!
+5. **Opções:**
+   - 🔄 Gerar outra (se não gostou)
+   - 💾 Baixar capa
+   - ✅ Salvar como capa oficial
+
+### 7️⃣ Instalar como App (PWA)
+
+**No Desktop (Chrome/Edge):**
+1. Aparecerá botão **"Instalar App"** no dashboard
+2. Clique nele
+3. Confirme a instalação
+4. Pronto! App instalado
+
+**No Mobile (iPhone/Android):**
+1. Abra no navegador (Safari/Chrome)
+2. Toque no menu (três pontinhos ou ícone compartilhar)
+3. Selecione **"Adicionar à tela inicial"**
+4. Confirme
+5. Ícone aparece na tela inicial! 🎉
 
 ---
 
