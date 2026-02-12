@@ -2119,19 +2119,15 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         ReactDOM.render(<App />, document.getElementById('root'));
 
         // ==================== PWA INITIALIZATION ====================
-        // Register Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('/LNStudio/sw.js', { scope: '/LNStudio/' })
                     .then(registration => {
-                        console.log('SW registered:', registration);
-                        
-                        // Check for updates
+                        console.log('SW registered:', registration.scope);
                         registration.addEventListener('updatefound', () => {
                             const newWorker = registration.installing;
                             newWorker.addEventListener('statechange', () => {
                                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    // New service worker available, prompt user to refresh
                                     if (confirm('Nova versão disponível! Recarregar para atualizar?')) {
                                         newWorker.postMessage({ type: 'SKIP_WAITING' });
                                         window.location.reload();

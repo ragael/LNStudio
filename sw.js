@@ -1,98 +1,72 @@
-const CACHE_NAME = 'ln-manager-v1.0.0';
+const CACHE_NAME = 'ln-studio-v2.1';
+const BASE_PATH = '/LNStudio';
+
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/favicon.svg',
-  '/manifest.json',
+  `${BASE_PATH}/`,
+  `${BASE_PATH}/index.html`,
+  `${BASE_PATH}/favicon.svg`,
+  `${BASE_PATH}/manifest.json`,
   'https://unpkg.com/react@18/umd/react.production.min.js',
   'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
   'https://unpkg.com/@babel/standalone/babel.min.js',
   'https://cdn.tailwindcss.com'
 ];
 
-// Install event - cache resources
+// Install - cache all essential files
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-      .catch((error) => {
-        console.error('Cache install failed:', error);
-      })
+      .then((cache) => cache.addAll(urlsToCache))
+      .catch((err) => console.error('Cache install failed:', err))
   );
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate - clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter((key) => key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
+      )
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch - serve from cache, fallback to network
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin) && 
-      !event.request.url.includes('unpkg.com') && 
-      !event.request.url.includes('cdn.tailwindcss.com') &&
-      !event.request.url.includes('pollinations.ai')) {
-    return;
-  }
+  const url = event.request.url;
+
+  // Skip non-GET and Puter.js API calls (dynamic)
+  if (event.request.method !== 'GET') return;
+  if (url.includes('puter.com/api') || url.includes('puter.com/ai')) return;
 
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
-          return response;
-        }
+    caches.match(event.request).then((cached) => {
+      if (cached) return cached;
 
-        // Clone the request
-        const fetchRequest = event.request.clone();
-
-        return fetch(fetchRequest).then((response) => {
-          // Check if valid response
+      return fetch(event.request)
+        .then((response) => {
           if (!response || response.status !== 200 || response.type === 'error') {
             return response;
           }
-
-          // Clone the response
-          const responseToCache = response.clone();
-
-          // Cache the fetched response for future use
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              // Don't cache POST requests or pollinations.ai (dynamic images)
-              if (event.request.method === 'GET' && !event.request.url.includes('pollinations.ai')) {
-                cache.put(event.request, responseToCache);
-              }
-            });
-
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
-        }).catch(() => {
-          // Network failed, try to return cached version
-          return caches.match('/index.html');
+        })
+        .catch(() => {
+          if (url.includes(BASE_PATH) || url.endsWith('/')) {
+            return caches.match(`${BASE_PATH}/index.html`);
+          }
         });
-      })
+    })
   );
 });
 
-// Handle messages from the app
+// Handle update messages
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
