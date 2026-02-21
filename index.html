@@ -3,18 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Light Novel Manager</title>
+    <title>LN Studio</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    
-    <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#8B5CF6">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="LN Manager">
-    <link rel="apple-touch-icon" href="favicon.svg">
-    <meta name="description" content="Gerenciador profissional de Light Novels geradas por IA">
-    <meta name="mobile-web-app-capable" content="yes">
     
     <!-- React -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -24,8 +14,11 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Puter.js for AI image generation -->
+    <!-- Puter.js for AI -->
     <script src="https://js.puter.com/v2/"></script>
+    
+    <!-- Supabase for cloud sync -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
         body {
@@ -55,96 +48,6 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-
-        // ==================== COVER GENERATOR ====================
-        const CoverGenerator = {
-            generatePrompt: (ln) => {
-                const genres = ln.genres.slice(0, 3).join(', ');
-                const protagonist = ln.continuityDB?.protagonist?.name || 'hero';
-                const setting = ln.continuityDB?.worldbuilding?.current_location || 'fantasy world';
-                
-                const styleMap = {
-                    'Isekai': 'anime fantasy illustration',
-                    'Ficção Científica': 'sci-fi digital art',
-                    'Cyberpunk': 'cyberpunk neon style',
-                    'Horror': 'dark horror manga style',
-                    'Romance': 'beautiful anime romance art'
-                };
-                
-                const style = styleMap[ln.genres[0]] || 'light novel cover art';
-                
-                return `${style}, ${genres} light novel cover, featuring ${protagonist} in ${setting}, professional book cover, detailed, vibrant colors, trending on artstation`;
-            },
-            
-            generateCoverBase64: async (ln) => {
-                const prompt = CoverGenerator.generatePrompt(ln);
-                
-                try {
-                    // Using Puter.js AI - FREE API
-                    const imageUrl = await puter.ai.txt2img(prompt, {
-                        model: 'flux',
-                        width: 512,
-                        height: 768
-                    });
-                    
-                    // Download image and convert to Base64
-                    const response = await fetch(imageUrl);
-                    const blob = await response.blob();
-                    
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                } catch (error) {
-                    console.error('Puter.js image generation failed:', error);
-                    throw error;
-                }
-            },
-            
-            downloadCover: (base64Data, filename) => {
-                const a = document.createElement('a');
-                a.href = base64Data;
-                a.download = filename;
-                a.click();
-            }
-        };
-
-        // ==================== PWA INSTALLER ====================
-        let deferredPrompt;
-        const PWAInstaller = {
-            init: () => {
-                window.addEventListener('beforeinstallprompt', (e) => {
-                    e.preventDefault();
-                    deferredPrompt = e;
-                    PWAInstaller.showInstallButton();
-                });
-
-                window.addEventListener('appinstalled', () => {
-                    console.log('PWA installed successfully');
-                    deferredPrompt = null;
-                });
-            },
-            
-            showInstallButton: () => {
-                // Will be shown in Dashboard
-                const event = new CustomEvent('pwa-installable');
-                window.dispatchEvent(event);
-            },
-            
-            install: async () => {
-                if (!deferredPrompt) {
-                    alert('App já está instalado ou navegador não suporta instalação.');
-                    return;
-                }
-                
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                console.log(`User response: ${outcome}`);
-                deferredPrompt = null;
-            }
-        };
 
         // ==================== INDEXEDDB MANAGER ====================
         const DB_NAME = 'LightNovelManagerDB';
@@ -252,8 +155,7 @@
                     createdAt: new Date().toISOString(),
                     chapters: [],
                     continuityDB: null,
-                    coverBase64: null, // Changed from coverUrl to coverBase64
-                    lastReadChapter: null // Track last read chapter
+                    lastReadChapter: null
                 };
                 return await IndexedDBManager.saveLN(newLN);
             },
@@ -326,31 +228,202 @@
             }
         };
 
+        // ==================== CONFIG MANAGER ====================
+        const ConfigManager = {
+            // Supabase Config
+            getSupabaseConfig: () => {
+                const stored = localStorage.getItem('supabase_config');
+                return stored ? JSON.parse(stored) : { url: '', key: '', enabled: false };
+            },
+            
+            setSupabaseConfig: (url, key, enabled = true) => {
+                localStorage.setItem('supabase_config', JSON.stringify({ url, key, enabled }));
+            },
+            
+            // Reader Global Settings
+            getReaderSettings: () => {
+                const stored = localStorage.getItem('reader_settings');
+                return stored ? JSON.parse(stored) : {
+                    fontSize: 18,
+                    lineHeight: 1.8,
+                    fontFamily: 'serif',
+                    theme: 'dark'
+                };
+            },
+            
+            setReaderSettings: (settings) => {
+                localStorage.setItem('reader_settings', JSON.stringify(settings));
+            },
+            
+            // Scroll Positions per Chapter
+            getScrollPosition: (lnId, chapterNumber) => {
+                const key = `scroll_${lnId}_${chapterNumber}`;
+                return parseFloat(localStorage.getItem(key) || '0');
+            },
+            
+            setScrollPosition: (lnId, chapterNumber, percentage) => {
+                const key = `scroll_${lnId}_${chapterNumber}`;
+                localStorage.setItem(key, percentage.toString());
+            }
+        };
+
+        // ==================== SUPABASE MANAGER ====================
+        let supabaseClient = null;
+        
+        const SupabaseManager = {
+            init: () => {
+                const config = ConfigManager.getSupabaseConfig();
+                if (config.enabled && config.url && config.key) {
+                    try {
+                        supabaseClient = window.supabase.createClient(config.url, config.key);
+                        return true;
+                    } catch (error) {
+                        console.error('Supabase init failed:', error);
+                        return false;
+                    }
+                }
+                return false;
+            },
+            
+            isConfigured: () => {
+                const config = ConfigManager.getSupabaseConfig();
+                return config.enabled && config.url && config.key;
+            },
+            
+            // Auth
+            signUp: async (email, password) => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const { data, error } = await supabaseClient.auth.signUp({ email, password });
+                if (error) throw error;
+                return data;
+            },
+            
+            signIn: async (email, password) => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+                return data;
+            },
+            
+            signOut: async () => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const { error } = await supabaseClient.auth.signOut();
+                if (error) throw error;
+            },
+            
+            getCurrentUser: async () => {
+                if (!supabaseClient) return null;
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                return user;
+            },
+            
+            // Data Sync
+            saveLN: async (ln) => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const user = await SupabaseManager.getCurrentUser();
+                if (!user) throw new Error('User not authenticated');
+                
+                const { error } = await supabaseClient
+                    .from('light_novels')
+                    .upsert({
+                        id: ln.id,
+                        user_id: user.id,
+                        data: ln,
+                        updated_at: new Date().toISOString()
+                    });
+                    
+                if (error) throw error;
+            },
+            
+            getLNs: async () => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const user = await SupabaseManager.getCurrentUser();
+                if (!user) return [];
+                
+                const { data, error } = await supabaseClient
+                    .from('light_novels')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
+                    
+                if (error) throw error;
+                return data.map(row => row.data);
+            },
+            
+            deleteLN: async (id) => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                const { error } = await supabaseClient
+                    .from('light_novels')
+                    .delete()
+                    .eq('id', id);
+                    
+                if (error) throw error;
+            },
+            
+            sync: async () => {
+                if (!supabaseClient) throw new Error('Supabase not configured');
+                
+                // Get data from both sources
+                const cloudLNs = await SupabaseManager.getLNs();
+                const localLNs = await IndexedDBManager.getLNs();
+                
+                // Merge (most recent wins)
+                const merged = {};
+                
+                localLNs.forEach(ln => {
+                    merged[ln.id] = ln;
+                });
+                
+                cloudLNs.forEach(ln => {
+                    const localUpdated = merged[ln.id]?.updatedAt || merged[ln.id]?.createdAt;
+                    const cloudUpdated = ln.updatedAt || ln.createdAt;
+                    
+                    if (!merged[ln.id] || new Date(cloudUpdated) > new Date(localUpdated)) {
+                        merged[ln.id] = ln;
+                    }
+                });
+                
+                // Save to both
+                const mergedArray = Object.values(merged);
+                for (const ln of mergedArray) {
+                    await IndexedDBManager.saveLN(ln);
+                    await SupabaseManager.saveLN(ln);
+                }
+                
+                return mergedArray;
+            }
+        };
+
         // ==================== PROMPT GENERATOR ====================
         const PromptGenerator = {
             generateInitialPrompt: (config) => {
+                const notesSection = config.notesList && config.notesList.length > 0
+                    ? `NOTAS ADICIONAIS:\n${config.notesList.map(note => `- ${note}`).join('\n')}`
+                    : '';
+                
+                const titleInstruction = !config.title || config.title.trim() === ''
+                    ? 'IMPORTANTE: Como nenhum título foi fornecido, você DEVE criar um título criativo e apropriado para esta light novel baseado nos gêneros e elementos escolhidos.'
+                    : `Título da obra: "${config.title}"`;
+                
                 return `Você é um autor de light novels e vai criar uma história serializada original para mim. Você tem total liberdade criativa.
+
+${titleInstruction}
 
 DIRETRIZES DE ESTILO:
 - Gêneros: ${config.genres.join(', ')}
-- Tom: ${config.tone}
 - Narrativa: Primeira pessoa
 - Capítulos: Longos (3000-5000 palavras)
 
 ELEMENTOS QUE DEVO INCLUIR:
 ${config.elements.map(e => `- ${e}`).join('\n')}
 
-PREFERÊNCIAS ESPECÍFICAS:
-- Foco principal: ${config.mainFocus}
-- Intensidade de ação: ${config.actionLevel}/10
-- Intensidade de slice of life: ${config.sliceOfLifeLevel}/10
-- Romance: ${config.romance}
-${config.additionalNotes ? `- Notas adicionais: ${config.additionalNotes}` : ''}
+${notesSection}
 
 SUA MISSÃO:
 1. Crie TUDO: mundo, personagens, premissa, sistema de poder, plot
-2. Escreva o Capítulo 1 completo (3000-5000 palavras)
-3. Mantenha consistência absoluta entre capítulos
+2. ${!config.title ? 'Crie um título criativo para a obra' : 'Use o título fornecido'}
+3. Escreva o Capítulo 1 completo (3000-5000 palavras)
+4. Mantenha consistência absoluta entre capítulos
 
 ═══════════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA OBRIGATÓRIO - JSON
@@ -360,6 +433,7 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
 
 \`\`\`json
 {
+  "title": "${!config.title ? 'CRIE UM TÍTULO CRIATIVO AQUI' : config.title}",
   "metadata": {
     "ai_provider": "SEU_NOME (ex: Claude, ChatGPT, Gemini, etc)",
     "model": "SEU_MODELO (ex: claude-sonnet-4, gpt-4-turbo, gemini-pro, etc)",
@@ -419,11 +493,20 @@ REGRAS CRÍTICAS:
 COMECE AGORA - Responda APENAS com o JSON:`;
             },
             
-            generateContinuationPrompt: (continuityDB, chapterNumber) => {
+            generateContinuationPrompt: (ln, chapterNumber) => {
+                const notesSection = ln.notesList && ln.notesList.length > 0
+                    ? `\nNOTAS ADICIONAIS DA OBRA:\n${ln.notesList.map(note => `- ${note}`).join('\n')}`
+                    : '';
+                    
                 return `CONTINUIDADE DA HISTÓRIA - Capítulo ${chapterNumber}
 
+CONTEXTO DA OBRA:
+- Título: ${ln.title || 'Sem título definido'}
+- Gêneros: ${ln.genres.join(', ')}
+- Elementos: ${ln.elements.join(', ')}${notesSection}
+
 REGISTRO DE CONTINUIDADE ATUAL:
-${typeof continuityDB === 'string' ? continuityDB : JSON.stringify(continuityDB, null, 2)}
+${typeof ln.continuityDB === 'string' ? ln.continuityDB : JSON.stringify(ln.continuityDB, null, 2)}
 
 ═══════════════════════════════════════════════════════════════════
 INSTRUÇÕES PARA O CAPÍTULO ${chapterNumber}
@@ -431,6 +514,8 @@ INSTRUÇÕES PARA O CAPÍTULO ${chapterNumber}
 
 Continue a história mantendo TOTAL consistência com os capítulos anteriores.
 - Escreva 3000-5000 palavras
+- Mantenha os gêneros e elementos escolhidos: ${ln.genres.join(', ')}
+- Use os elementos: ${ln.elements.slice(0, 3).join(', ')}
 - Avance a narrativa de forma significativa
 - Mantenha o tom e estilo estabelecidos
 - Use as informações do registro de continuidade
@@ -731,22 +816,319 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             )
         };
 
+        // ==================== SUPABASE CONFIG UI ====================
+        const SupabaseConfig = ({ onClose }) => {
+            const [url, setUrl] = useState('');
+            const [key, setKey] = useState('');
+            const [testing, setTesting] = useState(false);
+            
+            useEffect(() => {
+                const config = ConfigManager.getSupabaseConfig();
+                setUrl(config.url || '');
+                setKey(config.key || '');
+            }, []);
+            
+            const handleTest = async () => {
+                setTesting(true);
+                try {
+                    ConfigManager.setSupabaseConfig(url, key, true);
+                    const success = SupabaseManager.init();
+                    if (success) {
+                        alert('✅ Conexão testada com sucesso!');
+                    } else {
+                        alert('❌ Erro na configuração. Verifique URL e Key.');
+                    }
+                } catch (error) {
+                    alert('❌ Erro: ' + error.message);
+                } finally {
+                    setTesting(false);
+                }
+            };
+            
+            const handleSave = () => {
+                ConfigManager.setSupabaseConfig(url, key, true);
+                SupabaseManager.init();
+                alert('💾 Configurações salvas!');
+                onClose();
+            };
+            
+            const handleDisable = () => {
+                ConfigManager.setSupabaseConfig('', '', false);
+                alert('🔌 Supabase desabilitado');
+                onClose();
+            };
+            
+            return (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+                    <div className="glass-effect p-6 rounded-lg max-w-2xl w-full">
+                        <h2 className="text-2xl font-bold text-purple-300 mb-4">⚙️ Configurar Supabase</h2>
+                        
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Project URL</label>
+                                <input
+                                    type="text"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="https://seu-projeto.supabase.co"
+                                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Anon/Public Key</label>
+                                <input
+                                    type="password"
+                                    value={key}
+                                    onChange={(e) => setKey(e.target.value)}
+                                    placeholder="eyJhbGc..."
+                                    className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
+                                />
+                            </div>
+                            
+                            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                                <p className="text-sm text-blue-200">
+                                    <strong>Onde encontrar:</strong><br/>
+                                    Dashboard Supabase → Settings → API<br/>
+                                    • Project URL<br/>
+                                    • anon public (não usar service_role!)
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-3">
+                            <button
+                                onClick={handleTest}
+                                disabled={testing || !url || !key}
+                                className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {testing ? 'Testando...' : '🧪 Testar Conexão'}
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                disabled={!url || !key}
+                                className="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                            >
+                                💾 Salvar
+                            </button>
+                            <button
+                                onClick={handleDisable}
+                                className="bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700"
+                            >
+                                🔌 Desabilitar
+                            </button>
+                            <button
+                                onClick={onClose}
+                                className="glass-effect px-4 py-2 rounded-lg"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==================== SUPABASE AUTH UI ====================
+        const SupabaseAuth = () => {
+            const [user, setUser] = useState(null);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [syncing, setSyncing] = useState(false);
+            const [showConfig, setShowConfig] = useState(false);
+            const [showAuth, setShowAuth] = useState(false);
+            
+            useEffect(() => {
+                if (SupabaseManager.isConfigured()) {
+                    SupabaseManager.init();
+                    SupabaseManager.getCurrentUser().then(setUser);
+                }
+            }, []);
+            
+            const handleSignIn = async () => {
+                setLoading(true);
+                try {
+                    await SupabaseManager.signIn(email, password);
+                    const u = await SupabaseManager.getCurrentUser();
+                    setUser(u);
+                    setShowAuth(false);
+                    await handleSync();
+                    alert('✅ Login realizado! Dados sincronizados.');
+                } catch (error) {
+                    alert('❌ Erro: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleSignUp = async () => {
+                setLoading(true);
+                try {
+                    await SupabaseManager.signUp(email, password);
+                    alert('📧 Cadastro realizado! Verifique seu email.');
+                } catch (error) {
+                    alert('❌ Erro: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            
+            const handleSignOut = async () => {
+                await SupabaseManager.signOut();
+                setUser(null);
+            };
+            
+            const handleSync = async () => {
+                setSyncing(true);
+                try {
+                    await SupabaseManager.sync();
+                    alert('✅ Sincronização completa!');
+                    window.location.reload(); // Reload to show updated data
+                } catch (error) {
+                    alert('❌ Erro ao sincronizar: ' + error.message);
+                } finally {
+                    setSyncing(false);
+                }
+            };
+            
+            if (!SupabaseManager.isConfigured()) {
+                return (
+                    <>
+                        <div className="glass-effect p-4 rounded-lg mb-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="font-semibold">☁️ Sincronização na Nuvem</h3>
+                                    <p className="text-sm text-gray-400">Configure o Supabase para sincronizar entre dispositivos</p>
+                                </div>
+                                <button
+                                    onClick={() => setShowConfig(true)}
+                                    className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700"
+                                >
+                                    Configurar
+                                </button>
+                            </div>
+                        </div>
+                        {showConfig && <SupabaseConfig onClose={() => setShowConfig(false)} />}
+                    </>
+                );
+            }
+            
+            if (!user) {
+                return (
+                    <>
+                        <div className="glass-effect p-4 rounded-lg mb-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="font-semibold">☁️ Supabase Configurado</h3>
+                                    <p className="text-sm text-gray-400">Faça login para sincronizar</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setShowAuth(!showAuth)}
+                                        className="bg-green-600 px-4 py-2 rounded-lg hover:bg-green-700"
+                                    >
+                                        Login
+                                    </button>
+                                    <button
+                                        onClick={() => setShowConfig(true)}
+                                        className="glass-effect px-3 py-2 rounded-lg text-sm"
+                                    >
+                                        ⚙️
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            {showAuth && (
+                                <div className="mt-4 pt-4 border-t border-gray-700">
+                                    <div className="space-y-3">
+                                        <input
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            placeholder="Email"
+                                            className="w-full bg-black/50 border border-gray-700 rounded-lg p-2 text-sm"
+                                        />
+                                        <input
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            placeholder="Senha (mín. 6 caracteres)"
+                                            className="w-full bg-black/50 border border-gray-700 rounded-lg p-2 text-sm"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={handleSignIn}
+                                                disabled={loading}
+                                                className="flex-1 bg-green-600 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                                            >
+                                                {loading ? 'Aguarde...' : 'Entrar'}
+                                            </button>
+                                            <button
+                                                onClick={handleSignUp}
+                                                disabled={loading}
+                                                className="flex-1 bg-purple-600 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm"
+                                            >
+                                                Cadastrar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {showConfig && <SupabaseConfig onClose={() => setShowConfig(false)} />}
+                    </>
+                );
+            }
+            
+            return (
+                <>
+                    <div className="glass-effect p-4 rounded-lg mb-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <div>
+                                    <h3 className="font-semibold">☁️ Conectado</h3>
+                                    <p className="text-sm text-gray-400">{user.email}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleSync}
+                                    disabled={syncing}
+                                    className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                                >
+                                    {syncing ? 'Sincronizando...' : '🔄 Sincronizar'}
+                                </button>
+                                <button
+                                    onClick={() => setShowConfig(true)}
+                                    className="glass-effect px-3 py-2 rounded-lg text-sm"
+                                >
+                                    ⚙️
+                                </button>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="glass-effect px-3 py-2 rounded-lg text-sm"
+                                >
+                                    Sair
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {showConfig && <SupabaseConfig onClose={() => setShowConfig(false)} />}
+                </>
+            );
+        };
+
         // ==================== DASHBOARD ====================
         const Dashboard = ({ onCreateNew, onSelectLN }) => {
             const [lns, setLNs] = useState([]);
             const [importData, setImportData] = useState('');
             const [showImport, setShowImport] = useState(false);
-            const [showPWAInstall, setShowPWAInstall] = useState(false);
             const [loading, setLoading] = useState(true);
 
             useEffect(() => {
                 loadLNs();
-                
-                // Listen for PWA install availability
-                const handlePWAInstallable = () => setShowPWAInstall(true);
-                window.addEventListener('pwa-installable', handlePWAInstallable);
-                
-                return () => window.removeEventListener('pwa-installable', handlePWAInstallable);
             }, []);
 
             const loadLNs = async () => {
@@ -790,6 +1172,8 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-7xl mx-auto">
+                        <SupabaseAuth />
+                        
                         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12 gap-4">
                             <div>
                                 <h1 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
@@ -798,22 +1182,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 <p className="text-gray-400 mt-2">Gerencie suas histórias com IA</p>
                             </div>
                             <div className="flex flex-wrap gap-2 md:gap-3">
-                                {showPWAInstall && (
-                                    <button
-                                        onClick={() => {
-                                            PWAInstaller.install();
-                                            setShowPWAInstall(false);
-                                        }}
-                                        className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 md:px-6 py-2 md:py-3 rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm md:text-base"
-                                        title="Instalar como app"
-                                    >
-                                        <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        <span className="hidden sm:inline">Instalar App</span>
-                                        <span className="sm:hidden">App</span>
-                                    </button>
-                                )}
                                 <button
                                     onClick={() => setShowImport(!showImport)}
                                     className="glass-effect px-4 md:px-6 py-2 md:py-3 rounded-lg hover-glow transition-all flex items-center gap-2 text-sm md:text-base"
@@ -877,19 +1245,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                         onClick={() => onSelectLN(ln)}
                                         className="glass-effect rounded-lg hover-glow cursor-pointer transition-all fade-in overflow-hidden"
                                     >
-                                        {/* Cover Image */}
-                                        {ln.coverBase64 && (
-                                            <div className="w-full h-40 md:h-48 overflow-hidden bg-black/50">
-                                                <img 
-                                                    src={ln.coverBase64} 
-                                                    alt={`Capa de ${ln.title}`}
-                                                    className="w-full h-full object-cover"
-                                                    onError={(e) => {
-                                                        e.target.style.display = 'none';
-                                                    }}
-                                                />
-                                            </div>
-                                        )}
                                         
                                         <div className="p-4 md:p-6">
                                             <div className="flex items-start justify-between mb-3">
@@ -931,42 +1286,46 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             const [step, setStep] = useState(1);
             const [config, setConfig] = useState({
                 title: '',
-                genres: ['Isekai', 'Slice of Life', 'Ficção Científica', 'Aventura'],
-                tone: 'Leve com toques dramáticos',
-                elements: [
-                    'Sistema de poderes/magia com progressão gradual',
-                    'Tecnologia high-tech e/ou industrialização',
-                    'Gestão de negócios, economia, guildas',
-                    'Personagens cativantes',
-                    'Worldbuilding rico',
-                    'Sistemas de evolução de poderes'
-                ],
-                mainFocus: 'Aventura e progressão de poder',
-                actionLevel: 7,
-                sliceOfLifeLevel: 5,
-                romance: 'Secundário (presente mas não é o foco)',
-                additionalNotes: ''
+                genres: [],
+                elements: [],
+                notesList: []
             });
+            const [currentNote, setCurrentNote] = useState('');
 
             const genreOptions = [
                 'Isekai', 'Slice of Life', 'Ficção Científica', 'Aventura', 
                 'Fantasia', 'Romance', 'Mistério', 'Ação', 'Comédia', 
-                'Drama', 'Horror', 'Cyberpunk'
+                'Drama', 'Horror', 'Cyberpunk', 'Steampunk', 'Post-Apocalíptico',
+                'Supernatural', 'Psicológico', 'Thriller', 'Seinen', 'Shonen',
+                'Shojo', 'Histórico', 'Militar', 'Esportes', 'Musical',
+                'Policial', 'Espionagem', 'Western', 'Noir'
             ];
 
             const elementOptions = [
                 'Sistema de poderes/magia com progressão gradual',
                 'Tecnologia high-tech e/ou industrialização',
                 'Gestão de negócios, economia, guildas',
-                'Personagens cativantes',
-                'Worldbuilding rico',
-                'Sistemas de evolução de poderes',
+                'Personagens cativantes com desenvolvimento profundo',
+                'Worldbuilding rico e detalhado',
+                'Sistemas de evolução de poderes (níveis, classes)',
                 'Crafting e criação de itens',
-                'Política e intrigas',
-                'Dungeon crawling',
-                'Viagem entre mundos',
-                'Construção de império',
-                'Sistema de classes/jobs'
+                'Política e intrigas de corte',
+                'Dungeon crawling e exploração',
+                'Viagem entre mundos/dimensões',
+                'Construção de império/civilização',
+                'Sistema de classes e jobs',
+                'Mechas e robôs',
+                'Criaturas místicas e monstros',
+                'Artes marciais e combate corpo a corpo',
+                'Alquimia e poções',
+                'Navegação e exploração marítima',
+                'Academia/escola de magia ou combate',
+                'Religião e mitologia',
+                'Necromancia e magia proibida',
+                'Invocação de criaturas/espíritos',
+                'Viagem no tempo',
+                'Realidade virtual/jogos',
+                'Apocalipse zumbi/sobrevivência'
             ];
 
             const toggleGenre = (genre) => {
@@ -987,11 +1346,37 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                 }));
             };
 
-            const handleSubmit = async () => {
-                if (!config.title.trim()) {
-                    alert('Por favor, dê um título para sua Light Novel');
-                    return;
+            const addNote = () => {
+                if (currentNote.trim()) {
+                    setConfig(prev => ({
+                        ...prev,
+                        notesList: [...prev.notesList, currentNote.trim()]
+                    }));
+                    setCurrentNote('');
                 }
+            };
+
+            const removeNote = (index) => {
+                setConfig(prev => ({
+                    ...prev,
+                    notesList: prev.notesList.filter((_, i) => i !== index)
+                }));
+            };
+
+            const randomGenres = () => {
+                const shuffled = [...genreOptions].sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 3);
+                setConfig(prev => ({ ...prev, genres: selected }));
+            };
+
+            const randomElements = () => {
+                const shuffled = [...elementOptions].sort(() => Math.random() - 0.5);
+                const selected = shuffled.slice(0, 6);
+                setConfig(prev => ({ ...prev, elements: selected }));
+            };
+
+            const handleSubmit = async () => {
+                // Title is optional - AI will generate if empty
                 const ln = await StorageManager.createLN(config);
                 onComplete(ln);
             };
@@ -1014,7 +1399,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
 
                             {/* Progress Bar */}
                             <div className="flex mb-8">
-                                {[1, 2, 3].map(s => (
+                                {[1, 2].map(s => (
                                     <div key={s} className="flex-1">
                                         <div className={`h-2 rounded ${s <= step ? 'bg-purple-500' : 'bg-gray-700'}`} />
                                     </div>
@@ -1024,24 +1409,34 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                             {step === 1 && (
                                 <div className="space-y-6 fade-in">
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Título da Light Novel</label>
+                                        <label className="block text-sm font-medium mb-2">Título da Light Novel (opcional)</label>
                                         <input
                                             type="text"
                                             value={config.title}
                                             onChange={(e) => setConfig({...config, title: e.target.value})}
                                             className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
-                                            placeholder="Ex: Chronicles of the Digital Realm"
+                                            placeholder="Deixe em branco para a IA gerar um título"
                                         />
+                                        <p className="text-xs text-gray-500 mt-1">Se deixar vazio, a IA criará um título baseado nas suas seleções</p>
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Gêneros (selecione múltiplos)</label>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-sm font-medium">Gêneros (selecione múltiplos)</label>
+                                            <button
+                                                onClick={randomGenres}
+                                                className="px-2 py-1 bg-blue-600 rounded-lg hover:bg-blue-700"
+                                                title="Selecionar 3 gêneros aleatórios"
+                                            >
+                                                🎲
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                                             {genreOptions.map(genre => (
                                                 <button
                                                     key={genre}
                                                     onClick={() => toggleGenre(genre)}
-                                                    className={`p-3 rounded-lg border transition-all ${
+                                                    className={`p-2 text-sm rounded-lg border transition-all ${
                                                         config.genres.includes(genre)
                                                             ? 'bg-purple-500/30 border-purple-500'
                                                             : 'bg-black/30 border-gray-700 hover:border-gray-500'
@@ -1052,28 +1447,22 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                             ))}
                                         </div>
                                     </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Tom da História</label>
-                                        <select
-                                            value={config.tone}
-                                            onChange={(e) => setConfig({...config, tone: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
-                                        >
-                                            <option>Leve com toques dramáticos</option>
-                                            <option>Predominantemente leve e cômico</option>
-                                            <option>Equilibrado entre leve e dramático</option>
-                                            <option>Dramático com momentos leves</option>
-                                            <option>Sério e sombrio</option>
-                                        </select>
-                                    </div>
                                 </div>
                             )}
 
                             {step === 2 && (
                                 <div className="space-y-6 fade-in">
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Elementos da História (selecione múltiplos)</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-sm font-medium">Elementos da História (selecione múltiplos)</label>
+                                            <button
+                                                onClick={randomElements}
+                                                className="px-2 py-1 bg-blue-600 rounded-lg hover:bg-blue-700"
+                                                title="Selecionar 6 elementos aleatórios"
+                                            >
+                                                🎲
+                                            </button>
+                                        </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             {elementOptions.map(element => (
                                                 <button
@@ -1092,71 +1481,42 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium mb-2">Foco Principal</label>
-                                        <input
-                                            type="text"
-                                            value={config.mainFocus}
-                                            onChange={(e) => setConfig({...config, mainFocus: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
-                                            placeholder="Ex: Construção de império comercial"
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {step === 3 && (
-                                <div className="space-y-6 fade-in">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">
-                                            Intensidade de Ação: {config.actionLevel}/10
-                                        </label>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="10"
-                                            value={config.actionLevel}
-                                            onChange={(e) => setConfig({...config, actionLevel: parseInt(e.target.value)})}
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">
-                                            Intensidade de Slice of Life: {config.sliceOfLifeLevel}/10
-                                        </label>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="10"
-                                            value={config.sliceOfLifeLevel}
-                                            onChange={(e) => setConfig({...config, sliceOfLifeLevel: parseInt(e.target.value)})}
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium mb-2">Romance</label>
-                                        <select
-                                            value={config.romance}
-                                            onChange={(e) => setConfig({...config, romance: e.target.value})}
-                                            className="w-full bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
-                                        >
-                                            <option>Sem romance</option>
-                                            <option>Secundário (presente mas não é o foco)</option>
-                                            <option>Importante (subplot relevante)</option>
-                                            <option>Central (um dos focos principais)</option>
-                                            <option>Harem</option>
-                                        </select>
-                                    </div>
-
-                                    <div>
                                         <label className="block text-sm font-medium mb-2">Notas Adicionais (opcional)</label>
-                                        <textarea
-                                            value={config.additionalNotes}
-                                            onChange={(e) => setConfig({...config, additionalNotes: e.target.value})}
-                                            className="w-full h-32 bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
-                                            placeholder="Adicione qualquer preferência adicional..."
-                                        />
+                                        <div className="space-y-3">
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={currentNote}
+                                                    onChange={(e) => setCurrentNote(e.target.value)}
+                                                    onKeyPress={(e) => e.key === 'Enter' && addNote()}
+                                                    className="flex-1 bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300"
+                                                    placeholder="Digite uma nota e pressione Enter ou clique em Adicionar"
+                                                />
+                                                <button
+                                                    onClick={addNote}
+                                                    className="bg-purple-600 px-4 py-2 rounded-lg hover:bg-purple-700"
+                                                >
+                                                    Adicionar
+                                                </button>
+                                            </div>
+                                            
+                                            {config.notesList.length > 0 && (
+                                                <div className="space-y-2 mt-4">
+                                                    <p className="text-sm text-gray-400">Notas adicionadas:</p>
+                                                    {config.notesList.map((note, index) => (
+                                                        <div key={index} className="flex gap-2 items-center bg-black/30 p-3 rounded-lg border border-gray-700">
+                                                            <span className="flex-1 text-sm text-gray-300">{note}</span>
+                                                            <button
+                                                                onClick={() => removeNote(index)}
+                                                                className="text-red-400 hover:text-red-300 px-2"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -1169,7 +1529,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 >
                                     Anterior
                                 </button>
-                                {step < 3 ? (
+                                {step < 2 ? (
                                     <button
                                         onClick={() => setStep(step + 1)}
                                         className="bg-gradient-to-r from-purple-500 to-pink-500 px-4 md:px-6 py-3 rounded-lg order-1 sm:order-2"
@@ -1194,15 +1554,11 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         // ==================== LN MANAGER ====================
         const LNManager = ({ ln, onBack }) => {
             const [currentLN, setCurrentLN] = useState(ln);
-            const [view, setView] = useState('main'); // main, prompt, addChapter, read, editDB, coverGen
+            const [view, setView] = useState('main'); // main, prompt, addChapter, read, editDB
             const [selectedChapter, setSelectedChapter] = useState(null);
             const [responseText, setResponseText] = useState('');
             const [editDBText, setEditDBText] = useState('');
-            // Estados para addChapter
             const [validationResult, setValidationResult] = useState(null);
-            // Estados para coverGen
-            const [generatingCover, setGeneratingCover] = useState(false);
-            const [coverPreviewBase64, setCoverPreviewBase64] = useState(null);
 
             const refreshLN = async () => {
                 const lns = await StorageManager.getLNs();
@@ -1236,7 +1592,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                     return PromptGenerator.generateInitialPrompt(currentLN);
                 } else {
                     return PromptGenerator.generateContinuationPrompt(
-                        currentLN.continuityDB,
+                        currentLN,
                         currentLN.chapters.length + 1
                     );
                 }
@@ -1290,6 +1646,11 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                 };
 
                 const handleAddChapterFinal = async () => {
+                    // Check if title was generated and update if LN has no title
+                    if (validationResult.data.title && (!currentLN.title || currentLN.title.trim() === '')) {
+                        await StorageManager.updateLN(currentLN.id, { title: validationResult.data.title });
+                    }
+                    
                     const chapterData = {
                         content: validationResult.data.chapter.content,
                         metadata: validationResult.data.metadata,
@@ -1301,7 +1662,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                     setValidationResult(null);
                     await refreshLN();
                     setView('main');
-                    alert('Capítulo adicionado com sucesso!');
+                    alert('Capítulo adicionado com sucesso!' + (validationResult.data.title ? ' Título atualizado!' : ''));
                 };
 
                 return (
@@ -1592,128 +1953,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                 return <Reader ln={currentLN} onBack={() => setView('main')} initialChapter={selectedChapter} />;
             }
 
-            if (view === 'coverGen') {
-                const handleGenerateCover = async () => {
-                    setGeneratingCover(true);
-                    try {
-                        const base64 = await CoverGenerator.generateCoverBase64(currentLN);
-                        setCoverPreviewBase64(base64);
-                    } catch (error) {
-                        alert('Erro ao gerar capa. Verifique se está conectado à internet.');
-                        console.error(error);
-                    } finally {
-                        setGeneratingCover(false);
-                    }
-                };
-
-                const handleSaveCover = async () => {
-                    await StorageManager.updateLN(currentLN.id, { coverBase64: coverPreviewBase64 });
-                    await refreshLN();
-                    setView('main');
-                    alert('Capa salva com sucesso!');
-                };
-
-                const handleDownloadCover = () => {
-                    CoverGenerator.downloadCover(coverPreviewBase64, `${currentLN.title}-cover.png`);
-                };
-
-                return (
-                    <div className="min-h-screen p-8">
-                        <div className="max-w-4xl mx-auto">
-                            <button
-                                onClick={() => setView('main')}
-                                className="glass-effect px-4 py-2 rounded-lg mb-6 flex items-center gap-2"
-                            >
-                                <Icons.ArrowLeft />
-                                Voltar
-                            </button>
-
-                            <div className="glass-effect p-8 rounded-lg">
-                                <h2 className="text-2xl font-bold text-purple-300 mb-4">
-                                    Gerador de Capa - {currentLN.title}
-                                </h2>
-
-                                <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
-                                    <p className="text-sm text-blue-200">
-                                        <strong>IA Gratuita:</strong> Usando Puter.js (Flux model). A capa será salva permanentemente no app (Base64).
-                                    </p>
-                                </div>
-
-                                {!coverPreviewBase64 ? (
-                                    <div className="text-center py-12">
-                                        <div className="mb-6">
-                                            <svg className="w-24 h-24 mx-auto text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                        </div>
-                                        <h3 className="text-xl font-semibold mb-2">Pronto para gerar sua capa?</h3>
-                                        <p className="text-gray-400 mb-6">
-                                            A IA criará uma capa baseada em: {currentLN.genres.slice(0, 3).join(', ')}
-                                        </p>
-                                        <button
-                                            onClick={handleGenerateCover}
-                                            disabled={generatingCover}
-                                            className="bg-gradient-to-r from-purple-500 to-pink-500 px-8 py-3 rounded-lg hover:opacity-90 disabled:opacity-50 font-semibold"
-                                        >
-                                            {generatingCover ? 'Gerando...' : 'Gerar Capa'}
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-6">
-                                        {generatingCover && (
-                                            <div className="text-center py-8">
-                                                <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
-                                                <p className="text-gray-400 mt-4">Gerando capa...</p>
-                                            </div>
-                                        )}
-                                        
-                                        {!generatingCover && (
-                                            <>
-                                                <div className="bg-black/50 border border-gray-700 rounded-lg p-4">
-                                                    <img 
-                                                        src={coverPreviewBase64} 
-                                                        alt="Capa gerada"
-                                                        className="w-full max-w-md mx-auto rounded-lg shadow-2xl"
-                                                    />
-                                                </div>
-
-                                                <div className="flex flex-wrap gap-3 justify-center">
-                                                    <button
-                                                        onClick={() => {
-                                                            setCoverPreviewBase64(null);
-                                                            handleGenerateCover();
-                                                        }}
-                                                        className="glass-effect px-6 py-3 rounded-lg hover-glow"
-                                                    >
-                                                        🔄 Gerar Outra
-                                                    </button>
-                                                    <button
-                                                        onClick={handleDownloadCover}
-                                                        className="bg-blue-600 px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                                                    >
-                                                        <Icons.Download />
-                                                        Baixar Capa
-                                                    </button>
-                                                    <button
-                                                        onClick={handleSaveCover}
-                                                        className="bg-green-600 px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2"
-                                                    >
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                        </svg>
-                                                        Salvar como Capa Oficial
-                                                    </button>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            }
-
             return (
                 <div className="min-h-screen p-8">
                     <div className="max-w-6xl mx-auto">
@@ -1799,21 +2038,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 </div>
                                 <p className="text-gray-400 text-xs md:text-sm">
                                     Cole a resposta da IA para processar
-                                </p>
-                            </button>
-
-                            <button
-                                onClick={() => setView('coverGen')}
-                                className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
-                            >
-                                <div className="flex items-center gap-3 mb-2">
-                                    <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                    </svg>
-                                    <h3 className="text-lg md:text-xl font-semibold">Gerar Capa</h3>
-                                </div>
-                                <p className="text-gray-400 text-xs md:text-sm">
-                                    IA gratuita cria capa automaticamente
                                 </p>
                             </button>
 
@@ -1928,13 +2152,11 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                 }
                 return 0;
             });
-            const [settings, setSettings] = useState({
-                fontSize: 18,
-                lineHeight: 1.8,
-                fontFamily: 'serif',
-                theme: 'dark'
-            });
+            
+            // Load global settings from ConfigManager
+            const [settings, setSettings] = useState(() => ConfigManager.getReaderSettings());
             const [showSettings, setShowSettings] = useState(false);
+            const contentRef = React.useRef(null);
 
             const currentChapter = ln.chapters[currentChapterIndex];
 
@@ -1944,6 +2166,36 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                     StorageManager.updateLN(ln.id, { lastReadChapter: currentChapter.number });
                 }
             }, [currentChapter, ln.id]);
+            
+            // Save settings globally when changed
+            useEffect(() => {
+                ConfigManager.setReaderSettings(settings);
+            }, [settings]);
+            
+            // Restore scroll position when chapter changes
+            useEffect(() => {
+                if (currentChapter && contentRef.current) {
+                    const savedScroll = ConfigManager.getScrollPosition(ln.id, currentChapter.number);
+                    if (savedScroll > 0) {
+                        setTimeout(() => {
+                            const maxScroll = contentRef.current.scrollHeight - contentRef.current.clientHeight;
+                            const scrollTo = maxScroll * (savedScroll / 100);
+                            contentRef.current.scrollTop = scrollTo;
+                        }, 100);
+                    }
+                }
+            }, [currentChapter, ln.id]);
+            
+            // Save scroll position while scrolling
+            const handleScroll = () => {
+                if (currentChapter && contentRef.current) {
+                    const scrollTop = contentRef.current.scrollTop;
+                    const scrollHeight = contentRef.current.scrollHeight;
+                    const clientHeight = contentRef.current.clientHeight;
+                    const scrollPercentage = (scrollTop / (scrollHeight - clientHeight)) * 100;
+                    ConfigManager.setScrollPosition(ln.id, currentChapter.number, scrollPercentage);
+                }
+            };
 
             const themes = {
                 dark: { bg: 'bg-gray-900', text: 'text-gray-100' },
@@ -1958,7 +2210,11 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             };
 
             return (
-                <div className={`min-h-screen ${themes[settings.theme].bg} transition-colors`}>
+                <div 
+                    ref={contentRef}
+                    onScroll={handleScroll}
+                    className={`min-h-screen max-h-screen overflow-y-auto ${themes[settings.theme].bg} transition-colors`}
+                >
                     {/* Header */}
                     <div className="sticky top-0 glass-effect border-b border-gray-700 z-10">
                         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -2118,30 +2374,6 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         // Render
         ReactDOM.render(<App />, document.getElementById('root'));
 
-        // ==================== PWA INITIALIZATION ====================
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/LNStudio/sw.js', { scope: '/LNStudio/' })
-                    .then(registration => {
-                        console.log('SW registered:', registration.scope);
-                        registration.addEventListener('updatefound', () => {
-                            const newWorker = registration.installing;
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    if (confirm('Nova versão disponível! Recarregar para atualizar?')) {
-                                        newWorker.postMessage({ type: 'SKIP_WAITING' });
-                                        window.location.reload();
-                                    }
-                                }
-                            });
-                        });
-                    })
-                    .catch(err => console.log('SW registration failed:', err));
-            });
-        }
-
-        // Initialize PWA installer
-        PWAInstaller.init();
     </script>
 </body>
 </html>
