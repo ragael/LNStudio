@@ -157,7 +157,22 @@
                     continuityDB: null,
                     lastReadChapter: null
                 };
-                return await IndexedDBManager.saveLN(newLN);
+                const saved = await IndexedDBManager.saveLN(newLN);
+                
+                // Auto-sync to Supabase if configured and logged in
+                if (SupabaseManager.isConfigured()) {
+                    try {
+                        const user = await SupabaseManager.getCurrentUser();
+                        if (user) {
+                            await SupabaseManager.saveLN(saved);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to sync to Supabase:', error);
+                        // Continue anyway - local save succeeded
+                    }
+                }
+                
+                return saved;
             },
             
             updateLN: async (id, updates) => {
@@ -166,14 +181,44 @@
                 const ln = lns.find(l => l.id === id);
                 if (ln) {
                     const updated = { ...ln, ...updates };
-                    return await IndexedDBManager.saveLN(updated);
+                    const saved = await IndexedDBManager.saveLN(updated);
+                    
+                    // Auto-sync to Supabase if configured and logged in
+                    if (SupabaseManager.isConfigured()) {
+                        try {
+                            const user = await SupabaseManager.getCurrentUser();
+                            if (user) {
+                                await SupabaseManager.saveLN(saved);
+                            }
+                        } catch (error) {
+                            console.warn('Failed to sync to Supabase:', error);
+                            // Continue anyway - local save succeeded
+                        }
+                    }
+                    
+                    return saved;
                 }
                 return null;
             },
             
             deleteLN: async (id) => {
                 await StorageManager.ensureInit();
-                return await IndexedDBManager.deleteLN(id);
+                
+                // Delete from IndexedDB
+                await IndexedDBManager.deleteLN(id);
+                
+                // Also delete from Supabase if configured and logged in
+                if (SupabaseManager.isConfigured()) {
+                    try {
+                        const user = await SupabaseManager.getCurrentUser();
+                        if (user) {
+                            await SupabaseManager.deleteLN(id);
+                        }
+                    } catch (error) {
+                        console.warn('Failed to delete from Supabase:', error);
+                        // Continue anyway - local deletion succeeded
+                    }
+                }
             },
             
             addChapter: async (lnId, chapterData) => {
@@ -194,7 +239,22 @@
                     };
                     ln.chapters.push(chapter);
                     ln.continuityDB = chapterData.continuity;
-                    return await IndexedDBManager.saveLN(ln);
+                    const saved = await IndexedDBManager.saveLN(ln);
+                    
+                    // Auto-sync to Supabase if configured and logged in
+                    if (SupabaseManager.isConfigured()) {
+                        try {
+                            const user = await SupabaseManager.getCurrentUser();
+                            if (user) {
+                                await SupabaseManager.saveLN(saved);
+                            }
+                        } catch (error) {
+                            console.warn('Failed to sync to Supabase:', error);
+                            // Continue anyway - local save succeeded
+                        }
+                    }
+                    
+                    return saved;
                 }
                 return null;
             },
@@ -893,6 +953,51 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                     • Project URL<br/>
                                     • anon public (não usar service_role!)
                                 </p>
+                            </div>
+                            
+                            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+                                <p className="text-sm text-yellow-200 mb-2">
+                                    <strong>⚠️ IMPORTANTE:</strong> Você precisa criar a tabela no Supabase primeiro!
+                                </p>
+                                <details className="text-xs text-yellow-100">
+                                    <summary className="cursor-pointer hover:text-yellow-300 mb-2">
+                                        📋 Clique para ver o SQL (copie e execute no SQL Editor)
+                                    </summary>
+                                    <pre className="bg-black/50 p-3 rounded overflow-x-auto text-xs">
+{`create table light_novels (
+  id text primary key,
+  user_id uuid references auth.users not null,
+  data jsonb not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table light_novels enable row level security;
+
+create policy "Users see only their LNs"
+  on light_novels for select
+  using (auth.uid() = user_id);
+
+create policy "Users insert their LNs"
+  on light_novels for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users update their LNs"
+  on light_novels for update
+  using (auth.uid() = user_id);
+
+create policy "Users delete their LNs"
+  on light_novels for delete
+  using (auth.uid() = user_id);`}
+                                    </pre>
+                                    <p className="mt-2 text-yellow-200">
+                                        <strong>Passo a passo:</strong><br/>
+                                        1. Vá em SQL Editor no menu lateral<br/>
+                                        2. Cole o código acima<br/>
+                                        3. Clique em "Run" ou pressione Ctrl+Enter<br/>
+                                        4. Aguarde confirmação "Success"
+                                    </p>
+                                </details>
                             </div>
                         </div>
                         
@@ -1992,24 +2097,55 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div className="bg-purple-500/20 p-4 rounded-lg border border-purple-500/30">
-                                    <div className="text-3xl font-bold text-purple-300">
+                                    <div className="text-sm text-gray-400 mb-2">📚 Gêneros</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {currentLN.genres.map((genre, idx) => (
+                                            <span key={idx} className="text-xs bg-purple-500/30 text-purple-200 px-2 py-1 rounded-full">
+                                                {genre}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="bg-pink-500/20 p-4 rounded-lg border border-pink-500/30">
+                                    <div className="text-sm text-gray-400 mb-2">⭐ Elementos</div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {currentLN.elements.slice(0, 4).map((element, idx) => (
+                                            <span key={idx} className="text-xs bg-pink-500/30 text-pink-200 px-2 py-1 rounded-full">
+                                                {element.split(' ').slice(0, 3).join(' ')}
+                                            </span>
+                                        ))}
+                                        {currentLN.elements.length > 4 && (
+                                            <span className="text-xs text-pink-300">+{currentLN.elements.length - 4}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {currentLN.notesList && currentLN.notesList.length > 0 && (
+                                <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-500/30 mb-6">
+                                    <div className="text-sm text-gray-400 mb-2">📝 Notas Personalizadas</div>
+                                    <ul className="space-y-1">
+                                        {currentLN.notesList.map((note, idx) => (
+                                            <li key={idx} className="text-sm text-blue-200">• {note}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                            
+                            <div className="grid grid-cols-2 gap-6 mb-6">
+                                <div className="bg-green-500/20 p-4 rounded-lg border border-green-500/30">
+                                    <div className="text-3xl font-bold text-green-300">
                                         {currentLN.chapters.length}
                                     </div>
                                     <div className="text-sm text-gray-400 mt-1">Capítulos</div>
                                 </div>
-                                <div className="bg-pink-500/20 p-4 rounded-lg border border-pink-500/30">
-                                    <div className="text-3xl font-bold text-pink-300">
-                                        {currentLN.elements.length}
+                                <div className="bg-amber-500/20 p-4 rounded-lg border border-amber-500/30">
+                                    <div className="text-3xl font-bold text-amber-300">
+                                        {currentLN.lastReadChapter || '-'}
                                     </div>
-                                    <div className="text-sm text-gray-400 mt-1">Elementos Selecionados</div>
-                                </div>
-                                <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-500/30">
-                                    <div className="text-3xl font-bold text-blue-300">
-                                        {currentLN.actionLevel}/{currentLN.sliceOfLifeLevel}
-                                    </div>
-                                    <div className="text-sm text-gray-400 mt-1">Ação/SoL</div>
+                                    <div className="text-sm text-gray-400 mt-1">Última Leitura</div>
                                 </div>
                             </div>
                         </div>
@@ -2176,13 +2312,20 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             useEffect(() => {
                 if (currentChapter && contentRef.current) {
                     const savedScroll = ConfigManager.getScrollPosition(ln.id, currentChapter.number);
-                    if (savedScroll > 0) {
-                        setTimeout(() => {
-                            const maxScroll = contentRef.current.scrollHeight - contentRef.current.clientHeight;
-                            const scrollTo = maxScroll * (savedScroll / 100);
-                            contentRef.current.scrollTop = scrollTo;
-                        }, 100);
-                    }
+                    // Always reset scroll when chapter changes
+                    setTimeout(() => {
+                        if (contentRef.current) {
+                            if (savedScroll > 0) {
+                                // Restore saved position
+                                const maxScroll = contentRef.current.scrollHeight - contentRef.current.clientHeight;
+                                const scrollTo = maxScroll * (savedScroll / 100);
+                                contentRef.current.scrollTop = scrollTo;
+                            } else {
+                                // Reset to top for new/unread chapters
+                                contentRef.current.scrollTop = 0;
+                            }
+                        }
+                    }, 100);
                 }
             }, [currentChapter, ln.id]);
             
