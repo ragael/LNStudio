@@ -724,7 +724,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             let cleanInput = jsonConfig.trim();
 
             // Extrai apenas o objeto caso o usuário tenha colado "const firebaseConfig = { ... }"
-            const match = cleanInput.match(/\\{[\\s\\S]*\\}/);
+            const match = cleanInput.match(/\{[\s\S]*\}/);
             if (match) {
               cleanInput = match[0];
             }
@@ -1051,22 +1051,6 @@ service cloud.firestore {
         const [importData, setImportData] = useState("");
         const [showImport, setShowImport] = useState(false);
 
-        const handleDelete = async (id, e) => {
-          e.stopPropagation();
-          if (
-            confirm(
-              "Tem certeza que deseja deletar esta Light Novel? Ela será removida permanentemente da nuvem.",
-            )
-          ) {
-            await StorageManager.deleteLN(id);
-          }
-        };
-
-        const handleExport = (ln, e) => {
-          e.stopPropagation();
-          StorageManager.exportLN(ln);
-        };
-
         const handleImport = async () => {
           const ln = await StorageManager.importLN(importData);
           if (ln) {
@@ -1184,25 +1168,9 @@ service cloud.firestore {
                     >
                       <div className="p-4 md:p-6">
                         <div className="flex items-start justify-between mb-3">
-                          <h3 className="text-lg md:text-xl font-semibold text-purple-300 flex-1 pr-2">
+                          <h3 className="text-lg md:text-xl font-semibold text-purple-300 flex-1">
                             {ln.title || "Sem Título"}
                           </h3>
-                          <div className="flex gap-1 md:gap-2 flex-shrink-0">
-                            <button
-                              onClick={(e) => handleExport(ln, e)}
-                              className="p-1.5 md:p-2 hover:bg-white/10 rounded transition-colors"
-                              title="Exportar"
-                            >
-                              <Icons.Download />
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(ln.id, e)}
-                              className="p-1.5 md:p-2 hover:bg-red-500/20 rounded transition-colors text-red-400"
-                              title="Deletar"
-                            >
-                              <Icons.Trash />
-                            </button>
-                          </div>
                         </div>
                         <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-gray-400">
                           <p>
@@ -1565,6 +1533,21 @@ service cloud.firestore {
           }
         };
 
+        const handleDelete = async () => {
+          if (
+            confirm(
+              "Tem certeza que deseja deletar esta Light Novel? Ela será removida permanentemente da nuvem.",
+            )
+          ) {
+            await StorageManager.deleteLN(ln.id);
+            onBack();
+          }
+        };
+
+        const handleExport = () => {
+          StorageManager.exportLN(ln);
+        };
+
         const getPrompt = () => {
           if (ln.chapters.length === 0) {
             return PromptGenerator.generateInitialPrompt(ln);
@@ -1826,7 +1809,7 @@ service cloud.firestore {
               </button>
 
               <div className="glass-effect p-8 rounded-lg mb-6">
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
                   <div>
                     <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
                       {ln.title}
@@ -1835,7 +1818,23 @@ service cloud.firestore {
                       {ln.genres.join(" • ")}
                     </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={handleExport}
+                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-white/10 transition-colors"
+                      title="Exportar"
+                    >
+                      <Icons.Download />
+                      <span className="hidden sm:inline">Exportar</span>
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-red-500/20 text-red-400 transition-colors"
+                      title="Deletar"
+                    >
+                      <Icons.Trash />
+                      <span className="hidden sm:inline">Deletar</span>
+                    </button>
                     <button
                       onClick={() => {
                         const dbText =
@@ -1846,10 +1845,10 @@ service cloud.firestore {
                         setView("editDB");
                       }}
                       disabled={!ln.continuityDB}
-                      className="glass-effect px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 hover:bg-white/10 transition-colors"
                     >
                       <Icons.Edit />
-                      Editar BD
+                      <span className="hidden sm:inline">Editar BD</span>
                     </button>
                   </div>
                 </div>
@@ -1858,7 +1857,8 @@ service cloud.firestore {
                   <div className="bg-purple-500/20 p-4 rounded-lg border border-purple-500/30">
                     <div className="text-sm text-gray-400 mb-2">📚 Gêneros</div>
                     <div className="flex flex-wrap gap-2">
-                      {ln.genres.map((genre, idx) => (
+                      {/* Gêneros sem cortes e sem limite */}
+                      {ln.genres?.map((genre, idx) => (
                         <span
                           key={idx}
                           className="text-xs bg-purple-500/30 text-purple-200 px-2 py-1 rounded-full"
@@ -1873,16 +1873,35 @@ service cloud.firestore {
                       ⭐ Elementos
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {ln.elements.slice(0, 4).map((element, idx) => (
+                      {/* Elementos sem cortes e sem limite */}
+                      {ln.elements?.map((element, idx) => (
                         <span
                           key={idx}
                           className="text-xs bg-pink-500/30 text-pink-200 px-2 py-1 rounded-full"
                         >
-                          {element.split(" ").slice(0, 3).join(" ")}
+                          {element}
                         </span>
                       ))}
                     </div>
                   </div>
+                  {/* Notas Adicionais */}
+                  {ln.notesList && ln.notesList.length > 0 && (
+                    <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-500/30 md:col-span-2">
+                      <div className="text-sm text-gray-400 mb-2">
+                        📝 Notas Adicionais
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {ln.notesList.map((note, idx) => (
+                          <span
+                            key={idx}
+                            className="text-xs bg-blue-500/30 text-blue-200 px-2 py-1 rounded-full"
+                          >
+                            {note}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 mb-6">
