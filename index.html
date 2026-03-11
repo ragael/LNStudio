@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-PT">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -112,7 +112,7 @@
     </script>
 
     <script type="text/babel">
-      const { useState, useEffect } = React;
+      const { useState, useEffect, useRef } = React;
 
       // Variáveis globais para o Firebase (inicializadas pelo App)
       let auth, db, appId;
@@ -120,7 +120,7 @@
       // ==================== STORAGE MANAGER (Direct Firestore) ====================
       const StorageManager = {
         saveLN: async (ln) => {
-          if (!auth?.currentUser) throw new Error("Usuário não autenticado");
+          if (!auth?.currentUser) throw new Error("Utilizador não autenticado");
           const docRef = window.FirebaseAPI.doc(
             db,
             "artifacts",
@@ -141,6 +141,7 @@
             chapters: [],
             continuityDB: null,
             lastReadChapter: null,
+            coverImage: null,
           };
           await StorageManager.saveLN(newLN);
           return newLN;
@@ -284,17 +285,23 @@
 
           const titleInstruction =
             !config.title || config.title.trim() === ""
-              ? "IMPORTANTE: Como nenhum título foi fornecido, você DEVE criar um título criativo e apropriado para esta light novel baseado nos gêneros e elementos escolhidos."
+              ? "IMPORTANTE: Como nenhum título foi fornecido, OBRIGATORIAMENTE crie um título criativo e apropriado para esta light novel baseado nos géneros e elementos escolhidos."
               : `Título da obra: "${config.title}"`;
 
-          return `Você é um autor de light novels e vai criar uma história serializada original para mim. Você tem total liberdade criativa.
+          return `Você é um autor de light novels e vai criar uma história serializada original para mim. Tem total liberdade criativa.
 
 ${titleInstruction}
 
 DIRETRIZES DE ESTILO:
-- Gêneros: ${config.genres.join(", ")}
+- Géneros: ${config.genres.join(", ")}
 - Narrativa: Primeira pessoa
 - Capítulos: Longos (3000-5000 palavras)
+
+DIRETRIZES DE ESTILO E CRIATIVIDADE:
+- Temperatura de Criatividade: 0.8 (Seja criativo e surpreendente nas descrições, mas mantenha-se fiel ao tom da história).
+- Tropos e Clichês: Abrace os elementos clássicos de Light Novels, animes e mangás. Use os clichês, mas execute-os de forma interessante e dê o seu próprio toque único para que a leitura seja empolgante.
+- Sensorial e Hype: Descreva a magia, os combates e os cenários com impacto visual e emocional, mantendo o ritmo ágil típico do formato.
+- Diálogos Vivos: Dê personalidades e vozes distintas aos personagens. Use o subtexto nas conversas para criar tensão ou humor.
 
 ELEMENTOS QUE DEVO INCLUIR:
 ${config.elements.map((e) => `- ${e}`).join("\n")}
@@ -302,16 +309,16 @@ ${config.elements.map((e) => `- ${e}`).join("\n")}
 ${notesSection}
 
 SUA MISSÃO:
-1. Crie TUDO: mundo, personagens, premissa, sistema de poder, plot
+1. Crie TUDO: mundo, personagens, premissa, sistema de poder, enredo principal.
 2. ${!config.title ? "Crie um título criativo para a obra" : "Use o título fornecido"}
-3. Escreva o Capítulo 1 completo (3000-5000 palavras)
-4. Mantenha consistência absoluta entre capítulos
+3. Escreva o Capítulo 1 completo (3000-5000 palavras).
+4. Mantenha consistência absoluta e prepare o terreno para os próximos capítulos.
 
 ═══════════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA OBRIGATÓRIO - JSON
 ═══════════════════════════════════════════════════════════════════
 
-Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
+A sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
 
 {
   "title": "${!config.title ? "CRIE UM TÍTULO CRIATIVO AQUI" : config.title}",
@@ -348,11 +355,11 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
     },
     "power_system": {
       "mechanics": "Explicação de como o sistema de poder funciona",
-      "progression": "Como os personagens evoluem seus poderes"
+      "progression": "Como os personagens evoluem os seus poderes"
     },
     "plot_threads": {
       "main": "Descrição da linha narrativa principal",
-      "secondary": ["Subplot 1", "Subplot 2"]
+      "secondary": ["Sub-trama 1", "Sub-trama 2"]
     },
     "next_chapter_suggestions": [
       "Sugestão 1 para o Capítulo 2",
@@ -363,12 +370,12 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
 }
 
 REGRAS CRÍTICAS:
-1. Retorne APENAS o JSON - sem texto antes ou depois
-2. Use aspas duplas (") para strings JSON
-3. Para quebras de linha no conteúdo, use \\n
-4. Preencha TODOS os campos - não deixe nenhum vazio
-5. O campo "content" deve conter TODO o capítulo narrativo
-6. Certifique-se de que o JSON é válido (use validador se necessário)
+1. Retorne APENAS o JSON - sem texto antes ou depois.
+2. Use aspas duplas (") para strings JSON.
+3. Para quebras de linha no conteúdo, use \\n.
+4. Preencha TODOS os campos - não deixe nenhum vazio.
+5. O campo "content" deve conter TODO o capítulo narrativo.
+6. Certifique-se de que o JSON é válido.
 
 COMECE AGORA - Responda APENAS com o JSON:`;
         },
@@ -383,10 +390,16 @@ COMECE AGORA - Responda APENAS com o JSON:`;
 
 CONTEXTO DA OBRA:
 - Título: ${ln.title || "Sem título definido"}
-- Gêneros: ${ln.genres.join(", ")}
+- Géneros: ${ln.genres.join(", ")}
 - Elementos: ${ln.elements.join(", ")}${notesSection}
 
-REGISTRO DE CONTINUIDADE ATUAL:
+DIRETRIZES DE ESTILO E CRIATIVIDADE:
+- Temperatura de Criatividade: 0.8 (Seja criativo e surpreendente nas descrições, mas mantenha-se fiel ao tom da história).
+- Tropos e Clichês: Abrace os elementos clássicos de Light Novels, animes e mangás. Use os clichês, mas execute-os de forma interessante e dê o seu próprio toque único para que a leitura seja empolgante.
+- Sensorial e Hype: Descreva a magia, os combates e os cenários com impacto visual e emocional, mantendo o ritmo ágil típico do formato.
+- Diálogos Vivos: Dê personalidades e vozes distintas aos personagens. Use o subtexto nas conversas para criar tensão ou humor.
+
+REGISTO DE CONTINUIDADE ATUAL:
 ${typeof ln.continuityDB === "string" ? ln.continuityDB : JSON.stringify(ln.continuityDB, null, 2)}
 
 ═══════════════════════════════════════════════════════════════════
@@ -394,18 +407,18 @@ INSTRUÇÕES PARA O CAPÍTULO ${chapterNumber}
 ═══════════════════════════════════════════════════════════════════
 
 Continue a história mantendo TOTAL consistência com os capítulos anteriores.
-- Escreva 3000-5000 palavras
-- Mantenha os gêneros e elementos escolhidos: ${ln.genres.join(", ")}
+- Escreva 3000-5000 palavras em primeira pessoa.
+- Mantenha os géneros e elementos escolhidos: ${ln.genres.join(", ")}
 - Use os elementos: ${ln.elements.slice(0, 3).join(", ")}
-- Avance a narrativa de forma significativa
-- Mantenha o tom e estilo estabelecidos
-- Use as informações do registro de continuidade
+- Avance a narrativa de forma significativa.
+- Mantenha o tom e estilo estabelecidos.
+- Use as informações do registo de continuidade.
 
 ═══════════════════════════════════════════════════════════════════
 FORMATO DE RESPOSTA OBRIGATÓRIO - JSON
 ═══════════════════════════════════════════════════════════════════
 
-Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
+A sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
 
 {
   "metadata": {
@@ -423,7 +436,7 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
     "protagonist": {
       "name": "Nome (mantenha consistente)",
       "age": "Idade (atualize se necessário)",
-      "level_power": "ATUALIZE com progressão deste capítulo",
+      "level_power": "ATUALIZE com a progressão deste capítulo",
       "abilities": ["ATUALIZE", "com", "novas", "habilidades", "se houver"],
       "current_goal": "ATUALIZE o objetivo atual"
     },
@@ -441,14 +454,14 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
     },
     "power_system": {
       "mechanics": "ADICIONE novos detalhes se descobertos",
-      "progression": "ATUALIZE com progressão deste capítulo"
+      "progression": "ATUALIZE com a progressão deste capítulo"
     },
     "plot_threads": {
       "main": "ATUALIZE o status da trama principal",
-      "secondary": ["ATUALIZE", "subplots"]
+      "secondary": ["ATUALIZE", "sub-tramas"]
     },
     "next_chapter_suggestions": [
-      "Sugestão para Capítulo ${chapterNumber + 1}",
+      "Sugestão para o Capítulo ${chapterNumber + 1}",
       "Outra sugestão",
       "Mais uma sugestão"
     ]
@@ -456,13 +469,40 @@ Sua resposta DEVE ser APENAS um JSON válido neste formato EXATO:
 }
 
 REGRAS CRÍTICAS:
-1. Retorne APENAS o JSON - sem texto antes ou depois
-2. ATUALIZE todos os campos do continuity com mudanças deste capítulo
-3. Mantenha informações dos capítulos anteriores que não mudaram
-4. Use aspas duplas (") para strings JSON
-5. Para quebras de linha no conteúdo, use \\n
+1. Retorne APENAS o JSON - sem texto antes ou depois.
+2. ATUALIZE todos os campos do continuity com as mudanças deste capítulo.
+3. Mantenha informações dos capítulos anteriores que não mudaram.
+4. Use aspas duplas (") para strings JSON.
+5. Para quebras de linha no conteúdo, use \\n.
 
 COMECE AGORA - Responda APENAS com o JSON:`;
+        },
+
+        generateCoverPrompt: (ln) => {
+          const protagonistInfo = ln.continuityDB?.protagonist
+            ? `Character focus: ${ln.continuityDB.protagonist.name}, ${ln.continuityDB.protagonist.age} years old. ${ln.continuityDB.protagonist.traits || ""}.`
+            : "";
+          const summary = ln.continuityDB?.summary
+            ? `Context: ${ln.continuityDB.summary}`
+            : "";
+
+          return `Atue como um especialista em engenharia de prompts para IAs geradoras de imagens (Midjourney, DALL-E, Stable Diffusion).
+Eu preciso da imagem de capa para a minha Light Novel.
+
+DADOS DA OBRA:
+- Título: ${ln.title}
+- Gêneros: ${ln.genres.join(", ")}
+- Elementos: ${ln.elements.join(", ")}
+
+INSTRUÇÕES DO PROMPT A SER GERADO:
+1. Crie um prompt descritivo em INGLÊS.
+2. O estilo artístico deve refletir as capas de Light Novels japonesas modernas (ex: "masterpiece, highly detailed, vivid colors, cinematic lighting, light novel cover illustration, anime style").
+3. Inclua a atmosfera, detalhes do cenário e do personagem principal baseado nas seguintes informações:
+   ${protagonistInfo}
+   ${summary}
+4. OBRIGATÓRIO: A imagem final precisa ter proporções de retrato, com a resolução aproximada de 300x400 (aspect ratio 3:4). Inclua o comando para isso no final do prompt gerado (ex: "--ar 3:4").
+
+Retorne APENAS o prompt em inglês gerado, sem comentários adicionais:`;
         },
       };
 
@@ -519,7 +559,7 @@ COMECE AGORA - Responda APENAS com o JSON:`;
         },
 
         generateCorrectionPrompt: (originalText, error) => {
-          return `ERRO DE FORMATO DETECTADO
+          return `ERRO DE FORMATO DETETADO
 A resposta anterior não está no formato JSON correto.
 ERRO: ${error}
 
@@ -695,6 +735,21 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             />
           </svg>
         ),
+        Image: () => (
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        ),
         Google: () => (
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -717,33 +772,44 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         ),
       };
 
-      // ==================== FIREBASE CONFIG UI ====================
-      const FirebaseConfigModal = ({ onClose }) => {
+      // ==================== CONFIGS & SETTINGS UI ====================
+      const SettingsModal = ({ onClose }) => {
+        const [activeTab, setActiveTab] = useState("reader"); // 'reader' ou 'database'
+
+        // Estado Leitura
+        const [readerSettings, setReaderSettings] = useState(() =>
+          ConfigManager.getReaderSettings(),
+        );
+
+        // Estado DB
         const [jsonConfig, setJsonConfig] = useState("");
 
         useEffect(() => {
+          // Carregar BD Config
           const stored = ConfigManager.getFirebaseConfig();
           if (stored && stored.config) {
             setJsonConfig(JSON.stringify(stored.config, null, 2));
           }
         }, []);
 
-        const handleSave = () => {
+        // Grava automaticamente definições de leitura ao alterar
+        useEffect(() => {
+          ConfigManager.setReaderSettings(readerSettings);
+        }, [readerSettings]);
+
+        const handleSaveDB = () => {
           try {
             let parsed;
             let cleanInput = jsonConfig.trim();
 
-            // Extrai apenas o objeto caso o usuário tenha colado "const firebaseConfig = { ... }"
             const match = cleanInput.match(/\{[\s\S]*\}/);
             if (match) {
               cleanInput = match[0];
             }
 
             try {
-              // Tenta como JSON estrito primeiro
               parsed = JSON.parse(cleanInput);
             } catch (e) {
-              // Fallback: Avalia como objeto JavaScript (permite chaves sem aspas)
               parsed = new Function("return " + cleanInput)();
             }
 
@@ -759,7 +825,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
             }
 
             ConfigManager.setFirebaseConfig(parsed, true);
-            alert("Configuração Salva! A página será recarregada.");
+            alert("Base de Dados Guardada! A página será recarregada.");
             window.location.reload();
           } catch (e) {
             console.error(e);
@@ -769,7 +835,7 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
           }
         };
 
-        const handleDisable = () => {
+        const handleDisableDB = () => {
           ConfigManager.setFirebaseConfig(null, false);
           alert("Firebase Local desativado. Recarregando...");
           window.location.reload();
@@ -778,138 +844,242 @@ Agora, reformate sua resposta anterior no formato JSON correto:`;
         return (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-2 sm:p-4 z-50">
             <div className="glass-effect p-4 sm:p-6 rounded-lg max-w-2xl w-full max-h-[95vh] overflow-y-auto">
-              <h2 className="text-xl sm:text-2xl font-bold text-yellow-400 mb-4">
-                ⚙️ Configurar Banco (Firebase)
-              </h2>
+              <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                  <Icons.Settings /> Configurações Gerais
+                </h2>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-white text-3xl leading-none"
+                >
+                  &times;
+                </button>
+              </div>
 
-              <details className="mb-6 group">
-                <summary className="bg-purple-600/20 text-purple-300 p-3 rounded-lg cursor-pointer font-semibold border border-purple-500/30 hover:bg-purple-600/30 transition-colors text-sm sm:text-base">
-                  📖 Tutorial Passo a Passo para Iniciantes
-                </summary>
-                <div className="mt-3 p-4 bg-black/40 border border-gray-700 rounded-lg text-sm text-gray-300 space-y-4">
-                  <div>
-                    <h4 className="font-bold text-white mb-1">
-                      Passo 1: Criar o Projeto
-                    </h4>
-                    <p>
-                      1. Acesse{" "}
-                      <a
-                        href="https://console.firebase.google.com"
-                        target="_blank"
-                        className="text-blue-400 hover:underline"
+              {/* Tabs */}
+              <div className="flex gap-2 mb-6">
+                <button
+                  onClick={() => setActiveTab("reader")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex-1 sm:flex-none ${activeTab === "reader" ? "bg-purple-600 text-white" : "bg-black/30 text-gray-400 hover:bg-black/50"}`}
+                >
+                  📖 Leitura
+                </button>
+                <button
+                  onClick={() => setActiveTab("database")}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex-1 sm:flex-none ${activeTab === "database" ? "bg-blue-600 text-white" : "bg-black/30 text-gray-400 hover:bg-black/50"}`}
+                >
+                  ☁️ Base de Dados
+                </button>
+              </div>
+
+              {/* ABA: LEITURA */}
+              {activeTab === "reader" && (
+                <div className="fade-in space-y-6">
+                  <p className="text-sm text-gray-400 mb-4">
+                    Ajuste como prefere ler os capítulos. É guardado
+                    automaticamente.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-black/30 p-4 rounded-lg border border-gray-700/50">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-purple-300">
+                        Tamanho da Fonte: {readerSettings.fontSize}px
+                      </label>
+                      <input
+                        type="range"
+                        min="14"
+                        max="28"
+                        value={readerSettings.fontSize}
+                        onChange={(e) =>
+                          setReaderSettings({
+                            ...readerSettings,
+                            fontSize: parseInt(e.target.value),
+                          })
+                        }
+                        className="w-full accent-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-purple-300">
+                        Espaçamento: {readerSettings.lineHeight}
+                      </label>
+                      <input
+                        type="range"
+                        min="1.4"
+                        max="2.2"
+                        step="0.1"
+                        value={readerSettings.lineHeight}
+                        onChange={(e) =>
+                          setReaderSettings({
+                            ...readerSettings,
+                            lineHeight: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full accent-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-purple-300">
+                        Tema
+                      </label>
+                      <select
+                        value={readerSettings.theme}
+                        onChange={(e) =>
+                          setReaderSettings({
+                            ...readerSettings,
+                            theme: e.target.value,
+                          })
+                        }
+                        className="w-full bg-black border border-gray-600 rounded-lg p-2 focus:border-purple-500 outline-none"
                       >
-                        console.firebase.google.com
-                      </a>{" "}
-                      e faça login com sua conta Google.
-                    </p>
-                    <p>
-                      2. Clique em <strong>"Adicionar projeto"</strong>, dê um
-                      nome (ex: meu-estudio-ln) e avance. Na tela do Google
-                      Analytics, desative a chavinha (não precisaremos) e clique
-                      em Criar Projeto.
-                    </p>
+                        <option value="dark">Escuro</option>
+                        <option value="sepia">Sépia</option>
+                        <option value="black">Preto Puro (OLED)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-purple-300">
+                        Tipo de Fonte
+                      </label>
+                      <select
+                        value={readerSettings.fontFamily}
+                        onChange={(e) =>
+                          setReaderSettings({
+                            ...readerSettings,
+                            fontFamily: e.target.value,
+                          })
+                        }
+                        className="w-full bg-black border border-gray-600 rounded-lg p-2 focus:border-purple-500 outline-none"
+                      >
+                        <option value="serif">Serif (Clássica)</option>
+                        <option value="sans">Sans-Serif (Moderna)</option>
+                        <option value="mono">Monospace</option>
+                      </select>
+                    </div>
                   </div>
-                  <hr className="border-gray-700" />
-                  <div>
-                    <h4 className="font-bold text-white mb-1">
-                      Passo 2: Ativar o Login de Usuários (Authentication)
-                    </h4>
-                    <p>
-                      1. No menu esquerdo, vá em{" "}
-                      <strong>Criação (Build) &gt; Authentication</strong> e
-                      clique em <em>Primeiros passos</em>.
-                    </p>
-                    <p>
-                      2. Na aba <em>Sign-in method</em> (Método de login),
-                      adicione novos provedores e ative estes dois:{" "}
-                      <strong>Google</strong> e{" "}
-                      <strong>Anônimo (Anonymous)</strong>.
-                    </p>
-                  </div>
-                  <hr className="border-gray-700" />
-                  <div>
-                    <h4 className="font-bold text-white mb-1">
-                      Passo 3: Criar o Banco de Dados (Firestore)
-                    </h4>
-                    <p>
-                      1. No menu esquerdo, vá em{" "}
-                      <strong>Criação (Build) &gt; Firestore Database</strong> e
-                      clique em <em>Criar banco de dados</em>.
-                    </p>
-                    <p>
-                      2. Escolha o local mais próximo (ex: southamerica-east1) e
-                      avance.
-                    </p>
-                    <p>
-                      3. Escolha a opção{" "}
-                      <strong>Modo de teste (Test mode)</strong> e clique em
-                      Criar.
-                    </p>
-                  </div>
-                  <hr className="border-gray-700" />
-                  <div>
-                    <h4 className="font-bold text-white mb-1">
-                      Passo 4: Configurar Regras de Segurança (IMPORTANTE)
-                    </h4>
-                    <p>
-                      1. Ainda no Firestore, vá na aba{" "}
-                      <strong>Regras (Rules)</strong> que fica no topo da tela.
-                    </p>
-                    <p>
-                      2. Apague todo o texto que está lá, copie as regras que
-                      estão na <strong>caixa amarela abaixo</strong>, cole lá e
-                      clique em <strong>Publicar</strong>.
-                    </p>
-                  </div>
-                  <hr className="border-gray-700" />
-                  <div>
-                    <h4 className="font-bold text-white mb-1">
-                      Passo 5: Pegar o Código de Configuração Final
-                    </h4>
-                    <p>
-                      1. Clique no ícone de <strong>⚙️ Engrenagem</strong> no
-                      topo do menu lateral esquerdo e vá em{" "}
-                      <em>Configurações do projeto</em>.
-                    </p>
-                    <p>
-                      2. Role a página até o fim em <em>Seus aplicativos</em> e
-                      clique no ícone circular com o símbolo de código{" "}
-                      <strong>&lt;/&gt;</strong> (Web).
-                    </p>
-                    <p>
-                      3. Dê um nome (ex: App Web), registre o app e ele gerará
-                      um código na tela contendo{" "}
-                      <code>const firebaseConfig = &#123; ... &#125;</code>.
-                    </p>
-                    <p>
-                      4. <strong>Atenção:</strong> Copie APENAS o conteúdo das
-                      chaves <code>&#123; &#125;</code> (incluindo as próprias
-                      chaves) e cole na caixa de texto abaixo!
-                    </p>
+
+                  <div className="flex justify-end mt-4">
+                    <button
+                      onClick={onClose}
+                      className="bg-purple-600 px-6 py-2 rounded-lg hover:bg-purple-700 font-semibold"
+                    >
+                      Concluído
+                    </button>
                   </div>
                 </div>
-              </details>
+              )}
 
-              <p className="text-sm text-gray-300 mb-2 font-semibold">
-                Cole seu objeto JSON ou código JS <code>firebaseConfig</code>{" "}
-                aqui:
-              </p>
+              {/* ABA: BASE DE DADOS */}
+              {activeTab === "database" && (
+                <div className="fade-in">
+                  <details className="mb-6 group">
+                    <summary className="bg-blue-600/20 text-blue-300 p-3 rounded-lg cursor-pointer font-semibold border border-blue-500/30 hover:bg-blue-600/30 transition-colors text-sm sm:text-base">
+                      📖 Tutorial Passo a Passo para Iniciantes
+                    </summary>
+                    <div className="mt-3 p-4 bg-black/40 border border-gray-700 rounded-lg text-sm text-gray-300 space-y-4">
+                      <div>
+                        <h4 className="font-bold text-white mb-1">
+                          Passo 1: Criar o Projeto
+                        </h4>
+                        <p>
+                          1. Aceda a{" "}
+                          <a
+                            href="https://console.firebase.google.com"
+                            target="_blank"
+                            className="text-blue-400 hover:underline"
+                          >
+                            console.firebase.google.com
+                          </a>{" "}
+                          e inicie sessão.
+                        </p>
+                        <p>
+                          2. Clique em <strong>"Adicionar projeto"</strong>, dê
+                          um nome (ex: meu-estudio-ln) e avance.
+                        </p>
+                      </div>
+                      <hr className="border-gray-700" />
+                      <div>
+                        <h4 className="font-bold text-white mb-1">
+                          Passo 2: Ativar o Login (Authentication)
+                        </h4>
+                        <p>
+                          1. Vá a <strong>Criação &gt; Authentication</strong> e
+                          clique em <em>Primeiros passos</em>.
+                        </p>
+                        <p>
+                          2. Adicione novos fornecedores e ative o{" "}
+                          <strong>Google</strong> e o{" "}
+                          <strong>Anónimo (Anonymous)</strong>.
+                        </p>
+                      </div>
+                      <hr className="border-gray-700" />
+                      <div>
+                        <h4 className="font-bold text-white mb-1">
+                          Passo 3: Criar o Banco de Dados (Firestore)
+                        </h4>
+                        <p>
+                          1. Vá a{" "}
+                          <strong>Criação &gt; Firestore Database</strong> e
+                          clique em <em>Criar banco de dados</em>.
+                        </p>
+                        <p>
+                          2. Escolha <strong>Modo de teste (Test mode)</strong>{" "}
+                          e clique em Criar.
+                        </p>
+                      </div>
+                      <hr className="border-gray-700" />
+                      <div>
+                        <h4 className="font-bold text-white mb-1">
+                          Passo 4: Configurar Regras de Segurança
+                        </h4>
+                        <p>
+                          1. Na aba <strong>Regras (Rules)</strong>, apague
+                          tudo, cole as regras da caixa azul abaixo e clique em
+                          Publicar.
+                        </p>
+                      </div>
+                      <hr className="border-gray-700" />
+                      <div>
+                        <h4 className="font-bold text-white mb-1">
+                          Passo 5: Obter o Código de Configuração
+                        </h4>
+                        <p>
+                          1. Clique na <strong>⚙️ Engrenagem</strong> e vá a{" "}
+                          <em>Configurações do projeto</em>.
+                        </p>
+                        <p>
+                          2. Role até <em>Os seus aplicativos</em>, clique em{" "}
+                          <strong>&lt;/&gt;</strong> (Web), registe a app.
+                        </p>
+                        <p>
+                          3. Copie APENAS o conteúdo das chaves{" "}
+                          <code>&#123; &#125;</code> e cole na caixa de texto
+                          abaixo!
+                        </p>
+                      </div>
+                    </div>
+                  </details>
 
-              <textarea
-                value={jsonConfig}
-                onChange={(e) => setJsonConfig(e.target.value)}
-                placeholder='{&#10;  "apiKey": "AIzaSy...",&#10;  "authDomain": "...",&#10;  "projectId": "...",&#10;  ...&#10;}'
-                className="w-full h-32 sm:h-40 bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300 font-mono text-sm mb-4 resize-y"
-              />
+                  <p className="text-sm text-gray-300 mb-2 font-semibold">
+                    Cole seu objeto JSON ou código JS{" "}
+                    <code>firebaseConfig</code> aqui:
+                  </p>
 
-              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6">
-                <p className="text-sm text-yellow-200 mb-2">
-                  <strong>
-                    ⚠️ Regras do Firestore (Para colar no Passo 4):
-                  </strong>
-                </p>
-                <pre className="bg-black/50 p-3 mt-2 rounded text-xs sm:text-sm overflow-x-auto text-yellow-300 whitespace-pre-wrap">
-                  {`rules_version = '2';
+                  <textarea
+                    value={jsonConfig}
+                    onChange={(e) => setJsonConfig(e.target.value)}
+                    placeholder='{&#10;  "apiKey": "AIzaSy...",&#10;  "authDomain": "...",&#10;  "projectId": "...",&#10;  ...&#10;}'
+                    className="w-full h-32 sm:h-40 bg-black/50 border border-gray-700 rounded-lg p-3 text-gray-300 font-mono text-sm mb-4 resize-y"
+                  />
+
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-blue-200 mb-2">
+                      <strong>
+                        ⚠️ Regras do Firestore (Para colar no Passo 4):
+                      </strong>
+                    </p>
+                    <pre className="bg-black/50 p-3 mt-2 rounded text-xs sm:text-sm overflow-x-auto text-blue-300 whitespace-pre-wrap">
+                      {`rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /artifacts/{appId}/users/{userId}/{document=**} {
@@ -917,29 +1087,25 @@ service cloud.firestore {
     }
   }
 }`}
-                </pre>
-              </div>
+                    </pre>
+                  </div>
 
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={handleSave}
-                  className="bg-green-600 px-6 py-3 sm:py-2 rounded-lg hover:bg-green-700 font-semibold w-full sm:w-auto text-center"
-                >
-                  Salvar & Recarregar
-                </button>
-                <button
-                  onClick={handleDisable}
-                  className="bg-red-600 px-6 py-3 sm:py-2 rounded-lg hover:bg-red-700 w-full sm:w-auto text-center"
-                >
-                  Desativar App
-                </button>
-                <button
-                  onClick={onClose}
-                  className="glass-effect px-6 py-3 sm:py-2 rounded-lg w-full sm:w-auto text-center"
-                >
-                  Cancelar
-                </button>
-              </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={handleSaveDB}
+                      className="bg-green-600 px-6 py-3 sm:py-2 rounded-lg hover:bg-green-700 font-semibold w-full sm:w-auto text-center"
+                    >
+                      Ligar Base de Dados
+                    </button>
+                    <button
+                      onClick={handleDisableDB}
+                      className="bg-red-600 px-6 py-3 sm:py-2 rounded-lg hover:bg-red-700 w-full sm:w-auto text-center"
+                    >
+                      Desativar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1036,9 +1202,9 @@ service cloud.firestore {
                 )}
                 <button
                   onClick={onOpenConfig}
-                  className="glass-effect px-3 py-1.5 rounded-lg text-sm"
+                  className="glass-effect px-4 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:bg-purple-600/30 transition-colors"
                 >
-                  ⚙️
+                  <Icons.Settings /> Configurações
                 </button>
               </div>
             )}
@@ -1158,7 +1324,7 @@ service cloud.firestore {
                     Banco de Dados Ausente
                   </h3>
                   <p className="text-gray-500 mt-2">
-                    Clique em "Configurar Banco" acima para conectar seu projeto
+                    Clique em "Configurações" acima para conectar seu projeto
                     Firebase.
                   </p>
                 </div>
@@ -1180,21 +1346,30 @@ service cloud.firestore {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {lns.map((ln) => (
                     <div
                       key={ln.id}
                       onClick={() => onSelectLN(ln)}
-                      className="glass-effect rounded-lg hover-glow cursor-pointer transition-all fade-in overflow-hidden"
+                      className="glass-effect rounded-lg hover-glow cursor-pointer transition-all fade-in overflow-hidden flex flex-row"
                     >
-                      <div className="p-4 md:p-6">
+                      {ln.coverImage && (
+                        <div className="w-24 flex-shrink-0 bg-black/40 border-r border-gray-700">
+                          <img
+                            src={ln.coverImage}
+                            alt="Capa"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="p-4 md:p-6 flex-1">
                         <div className="flex items-start justify-between mb-3">
-                          <h3 className="text-lg md:text-xl font-semibold text-purple-300 flex-1">
+                          <h3 className="text-lg md:text-xl font-semibold text-purple-300 flex-1 leading-tight">
                             {ln.title || "Sem Título"}
                           </h3>
                         </div>
                         <div className="space-y-1.5 md:space-y-2 text-xs md:text-sm text-gray-400">
-                          <p>
+                          <p className="line-clamp-1">
                             <span className="text-gray-500">Gêneros:</span>{" "}
                             {ln.genres?.join(", ") || "Nenhum"}
                           </p>
@@ -1534,9 +1709,17 @@ service cloud.firestore {
       const LNManager = ({ ln, onBack }) => {
         const [view, setView] = useState("main");
         const [selectedChapter, setSelectedChapter] = useState(null);
+
+        // Form states
         const [responseText, setResponseText] = useState("");
         const [editDBText, setEditDBText] = useState("");
         const [validationResult, setValidationResult] = useState(null);
+
+        // Editable Prompt states
+        const [promptText, setPromptText] = useState("");
+        const [promptTitle, setPromptTitle] = useState("");
+
+        const fileInputRef = useRef(null);
 
         const copyToClipboard = (text) => {
           navigator.clipboard.writeText(text);
@@ -1569,19 +1752,75 @@ service cloud.firestore {
           StorageManager.exportLN(ln);
         };
 
-        const getPrompt = () => {
+        const openStoryPrompt = () => {
+          let pText = "";
           if (ln.chapters.length === 0) {
-            return PromptGenerator.generateInitialPrompt(ln);
+            pText = PromptGenerator.generateInitialPrompt(ln);
           } else {
-            return PromptGenerator.generateContinuationPrompt(
+            pText = PromptGenerator.generateContinuationPrompt(
               ln,
               ln.chapters.length + 1,
             );
           }
+          setPromptTitle(`Prompt - Capítulo ${ln.chapters.length + 1}`);
+          setPromptText(pText);
+          setView("prompt");
+        };
+
+        const openCoverPrompt = () => {
+          setPromptTitle("Prompt - Imagem de Capa");
+          setPromptText(PromptGenerator.generateCoverPrompt(ln));
+          setView("prompt");
+        };
+
+        const handleImageUpload = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = async () => {
+              const canvas = document.createElement("canvas");
+              const MAX_WIDTH = 300;
+              const MAX_HEIGHT = 400;
+              let width = img.width;
+              let height = img.height;
+
+              // Redimensionar mantendo proporções
+              if (width > height) {
+                if (width > MAX_WIDTH) {
+                  height *= MAX_WIDTH / width;
+                  width = MAX_WIDTH;
+                }
+              } else {
+                if (height > MAX_HEIGHT) {
+                  width *= MAX_HEIGHT / height;
+                  height = MAX_HEIGHT;
+                }
+              }
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext("2d");
+              ctx.drawImage(img, 0, 0, width, height);
+              // Compactar levemente para poupar espaço no BD (1MB max do Firestore)
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+              await StorageManager.updateLN(ln.id, { coverImage: dataUrl });
+              alert("Imagem da capa guardada com sucesso!");
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const handleRemoveCover = async () => {
+          if (confirm("Tem certeza que deseja remover a imagem de capa?")) {
+            await StorageManager.updateLN(ln.id, { coverImage: null });
+          }
         };
 
         if (view === "prompt") {
-          const prompt = getPrompt();
           return (
             <div className="min-h-screen p-8">
               <div className="max-w-4xl mx-auto">
@@ -1593,21 +1832,27 @@ service cloud.firestore {
                   Voltar
                 </button>
                 <div className="glass-effect p-8 rounded-lg">
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                     <h2 className="text-2xl font-bold text-purple-300">
-                      Prompt - Capítulo {ln.chapters.length + 1}
+                      {promptTitle}
                     </h2>
                     <button
-                      onClick={() => copyToClipboard(prompt)}
+                      onClick={() => copyToClipboard(promptText)}
                       className="bg-purple-600 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700"
                     >
                       <Icons.Copy />
                       Copiar Prompt
                     </button>
                   </div>
-                  <div className="bg-black/50 border border-gray-700 rounded-lg p-4 whitespace-pre-wrap text-sm text-gray-300 max-h-[600px] overflow-y-auto">
-                    {prompt}
-                  </div>
+
+                  <textarea
+                    value={promptText}
+                    onChange={(e) => setPromptText(e.target.value)}
+                    className="w-full h-[60vh] bg-black/50 border border-gray-700 rounded-lg p-4 text-gray-300 font-mono text-sm resize-y focus:outline-none focus:border-purple-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    * Pode modificar o texto acima livremente antes de copiar.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1656,7 +1901,11 @@ service cloud.firestore {
             <div className="min-h-screen p-8">
               <div className="max-w-5xl mx-auto">
                 <button
-                  onClick={() => setView("main")}
+                  onClick={() => {
+                    setView("main");
+                    setValidationResult(null);
+                    setResponseText("");
+                  }}
                   className="glass-effect px-4 py-2 rounded-lg mb-6 flex items-center gap-2"
                 >
                   <Icons.ArrowLeft />
@@ -1754,7 +2003,11 @@ service cloud.firestore {
                           Tentar Novamente
                         </button>
                         <button
-                          onClick={() => setView("main")}
+                          onClick={() => {
+                            setView("main");
+                            setValidationResult(null);
+                            setResponseText("");
+                          }}
                           className="glass-effect px-6 py-3 rounded-lg"
                         >
                           Cancelar
@@ -1829,123 +2082,197 @@ service cloud.firestore {
                 Dashboard
               </button>
 
-              <div className="glass-effect p-8 rounded-lg mb-6">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-                  <div>
-                    <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
-                      {ln.title}
-                    </h1>
-                    <p className="text-gray-400 mt-2">
-                      {ln.genres.join(" • ")}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleExport}
-                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-white/10 transition-colors"
-                      title="Exportar"
-                    >
-                      <Icons.Download />
-                      <span className="hidden sm:inline">Exportar</span>
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-red-500/20 text-red-400 transition-colors"
-                      title="Deletar"
-                    >
-                      <Icons.Trash />
-                      <span className="hidden sm:inline">Deletar</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        const dbText =
-                          typeof ln.continuityDB === "string"
-                            ? ln.continuityDB
-                            : JSON.stringify(ln.continuityDB, null, 2);
-                        setEditDBText(dbText);
-                        setView("editDB");
-                      }}
-                      disabled={!ln.continuityDB}
-                      className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 hover:bg-white/10 transition-colors"
-                    >
-                      <Icons.Edit />
-                      <span className="hidden sm:inline">Editar BD</span>
-                    </button>
-                  </div>
-                </div>
+              <div className="glass-effect p-6 md:p-8 rounded-lg mb-6">
+                {/* Cabeçalho Dividido (Capa Esquerda, Info Direita) */}
+                <div className="flex flex-col md:flex-row gap-6 mb-6">
+                  {/* Lado Esquerdo: Capa */}
+                  <div className="w-full md:w-56 flex-shrink-0 flex flex-col items-center gap-3">
+                    <div className="w-full aspect-[3/4] bg-black/40 border border-gray-700 rounded-lg overflow-hidden relative shadow-lg">
+                      {ln.coverImage ? (
+                        <img
+                          src={ln.coverImage}
+                          className="w-full h-full object-cover"
+                          alt="Capa"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 gap-2 p-4 text-center">
+                          <Icons.Image />
+                          <span className="text-sm">Sem Capa</span>
+                        </div>
+                      )}
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-purple-500/20 p-4 rounded-lg border border-purple-500/30">
-                    <div className="text-sm text-gray-400 mb-2">📚 Gêneros</div>
-                    <div className="flex flex-wrap gap-2">
-                      {/* Gêneros sem cortes e sem limite */}
-                      {ln.genres?.map((genre, idx) => (
-                        <span
-                          key={idx}
-                          className="text-xs bg-purple-500/30 text-purple-200 px-2 py-1 rounded-full"
+                    <div className="flex gap-2 w-full">
+                      <button
+                        onClick={() => fileInputRef.current.click()}
+                        className="flex-1 bg-purple-600/30 hover:bg-purple-600/80 border border-purple-500/30 py-2 rounded text-xs transition-colors"
+                      >
+                        {ln.coverImage ? "Alterar" : "Add Imagem"}
+                      </button>
+                      {ln.coverImage && (
+                        <button
+                          onClick={handleRemoveCover}
+                          className="flex-1 bg-red-600/30 hover:bg-red-600/80 border border-red-500/30 py-2 rounded text-xs transition-colors"
                         >
-                          {genre}
-                        </span>
-                      ))}
+                          Excluir
+                        </button>
+                      )}
                     </div>
+                    {/* Input de ficheiro oculto */}
+                    <input
+                      type="file"
+                      className="hidden"
+                      ref={fileInputRef}
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handleImageUpload}
+                    />
                   </div>
-                  <div className="bg-pink-500/20 p-4 rounded-lg border border-pink-500/30">
-                    <div className="text-sm text-gray-400 mb-2">
-                      ⭐ Elementos
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {/* Elementos sem cortes e sem limite */}
-                      {ln.elements?.map((element, idx) => (
-                        <span
-                          key={idx}
-                          className="text-xs bg-pink-500/30 text-pink-200 px-2 py-1 rounded-full"
+
+                  {/* Lado Direito: Informações e Metadados */}
+                  <div className="flex-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                      <div>
+                        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+                          {ln.title}
+                        </h1>
+                        <p
+                          className="text-gray-400 mt-2 line-clamp-1"
+                          title={ln.genres.join(" • ")}
                         >
-                          {element}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Notas Adicionais */}
-                  {ln.notesList && ln.notesList.length > 0 && (
-                    <div className="bg-blue-500/20 p-4 rounded-lg border border-blue-500/30 md:col-span-2">
-                      <div className="text-sm text-gray-400 mb-2">
-                        📝 Notas Adicionais
+                          {ln.genres.join(" • ")}
+                        </p>
                       </div>
+
+                      {/* Botões de Ação Topo Direito */}
                       <div className="flex flex-wrap gap-2">
-                        {ln.notesList.map((note, idx) => (
-                          <span
-                            key={idx}
-                            className="text-xs bg-blue-500/30 text-blue-200 px-2 py-1 rounded-full"
-                          >
-                            {note}
-                          </span>
-                        ))}
+                        <button
+                          onClick={handleExport}
+                          className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-white/10 transition-colors"
+                          title="Exportar"
+                        >
+                          <Icons.Download />
+                          <span className="hidden sm:inline">Exportar</span>
+                        </button>
+                        <button
+                          onClick={handleDelete}
+                          className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-red-500/20 text-red-400 transition-colors"
+                          title="Deletar"
+                        >
+                          <Icons.Trash />
+                          <span className="hidden sm:inline">Deletar</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const dbText =
+                              typeof ln.continuityDB === "string"
+                                ? ln.continuityDB
+                                : JSON.stringify(ln.continuityDB, null, 2);
+                            setEditDBText(dbText);
+                            setView("editDB");
+                          }}
+                          disabled={!ln.continuityDB}
+                          className="glass-effect px-3 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 hover:bg-white/10 transition-colors"
+                        >
+                          <Icons.Edit />
+                          <span className="hidden sm:inline">Editar BD</span>
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    {/* Exibição do Sumário */}
+                    {ln.continuityDB?.summary && (
+                      <div className="mb-4 bg-black/30 p-4 rounded-lg border border-gray-700/50">
+                        <h3 className="text-sm text-purple-300 font-semibold mb-1 flex items-center gap-2">
+                          <Icons.BookOpen /> Sumário
+                        </h3>
+                        <p className="text-sm text-gray-300 italic">
+                          "{ln.continuityDB.summary}"
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      {/* Gêneros */}
+                      <div className="bg-purple-500/10 p-4 rounded-lg border border-purple-500/20">
+                        <div className="text-sm text-gray-400 mb-2">
+                          📚 Gêneros
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {ln.genres?.map((genre, idx) => (
+                            <span
+                              key={idx}
+                              className="text-xs bg-purple-500/20 text-purple-200 px-2 py-1 rounded-full"
+                            >
+                              {genre}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Elementos */}
+                      <div className="bg-pink-500/10 p-4 rounded-lg border border-pink-500/20">
+                        <div className="text-sm text-gray-400 mb-2">
+                          ⭐ Elementos
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {ln.elements?.map((element, idx) => (
+                            <span
+                              key={idx}
+                              className="text-xs bg-pink-500/20 text-pink-200 px-2 py-1 rounded-full"
+                            >
+                              {element}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Notas Adicionais */}
+                      {ln.notesList && ln.notesList.length > 0 && (
+                        <div className="bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 sm:col-span-2">
+                          <div className="text-sm text-gray-400 mb-2">
+                            📝 Notas Adicionais
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {ln.notesList.map((note, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-blue-500/20 text-blue-200 px-2 py-1 rounded-full"
+                              >
+                                {note}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div className="bg-green-500/20 p-4 rounded-lg border border-green-500/30">
+                {/* Estatísticas */}
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-gray-700/50">
+                  <div className="bg-green-500/10 p-4 rounded-lg border border-green-500/20">
                     <div className="text-3xl font-bold text-green-300">
                       {ln.chapters.length}
                     </div>
-                    <div className="text-sm text-gray-400 mt-1">Capítulos</div>
+                    <div className="text-sm text-gray-400 mt-1">
+                      Capítulos Escritos
+                    </div>
                   </div>
-                  <div className="bg-amber-500/20 p-4 rounded-lg border border-amber-500/30">
+                  <div className="bg-amber-500/10 p-4 rounded-lg border border-amber-500/20">
                     <div className="text-3xl font-bold text-amber-300">
                       {ln.lastReadChapter || "-"}
                     </div>
                     <div className="text-sm text-gray-400 mt-1">
-                      Última Leitura
+                      Último Capítulo Lido
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
+              {/* Botões Principais */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
                 <button
-                  onClick={() => setView("prompt")}
+                  onClick={openStoryPrompt}
                   className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
                 >
                   <div className="flex items-center gap-3 mb-2">
@@ -1955,7 +2282,22 @@ service cloud.firestore {
                     </h3>
                   </div>
                   <p className="text-gray-400 text-xs md:text-sm">
-                    Copie o prompt para o cap {ln.chapters.length + 1}
+                    Prompt p/ cap {ln.chapters.length + 1}
+                  </p>
+                </button>
+
+                <button
+                  onClick={openCoverPrompt}
+                  className="glass-effect p-4 md:p-6 rounded-lg hover-glow transition-all text-left"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <Icons.Image />
+                    <h3 className="text-lg md:text-xl font-semibold">
+                      Prompt de Capa
+                    </h3>
+                  </div>
+                  <p className="text-gray-400 text-xs md:text-sm">
+                    Gerar imagem com proporção 3:4
                   </p>
                 </button>
 
@@ -1970,7 +2312,7 @@ service cloud.firestore {
                     </h3>
                   </div>
                   <p className="text-gray-400 text-xs md:text-sm">
-                    Cole a resposta JSON
+                    Cole a resposta JSON da IA
                   </p>
                 </button>
 
@@ -1999,7 +2341,7 @@ service cloud.firestore {
               {ln.chapters.length > 0 && (
                 <div className="glass-effect p-8 rounded-lg">
                   <h2 className="text-2xl font-bold text-purple-300 mb-6">
-                    Capítulos
+                    Capítulos Escritos
                   </h2>
                   <div className="space-y-3">
                     {ln.chapters.map((chapter, idx) => (
@@ -2061,10 +2403,8 @@ service cloud.firestore {
           return 0;
         });
 
-        const [settings, setSettings] = useState(() =>
-          ConfigManager.getReaderSettings(),
-        );
-        const [showSettings, setShowSettings] = useState(false);
+        // Configurações do Leitor a partir do ConfigManager
+        const [settings] = useState(() => ConfigManager.getReaderSettings());
         const contentRef = React.useRef(null);
 
         const currentChapter = ln.chapters[currentChapterIndex];
@@ -2076,10 +2416,6 @@ service cloud.firestore {
             });
           }
         }, [currentChapter, ln.id]);
-
-        useEffect(() => {
-          ConfigManager.setReaderSettings(settings);
-        }, [settings]);
 
         useEffect(() => {
           if (currentChapter && contentRef.current) {
@@ -2151,70 +2487,9 @@ service cloud.firestore {
                     Capítulo {currentChapter.number}
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className="px-4 py-2 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  <Icons.Settings />
-                </button>
+                <div className="w-16"></div>{" "}
+                {/* Espaçador invisível para centrar o título */}
               </div>
-              {showSettings && (
-                <div className="border-t border-gray-700 p-6 fade-in">
-                  <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm mb-2">
-                        Tamanho da Fonte: {settings.fontSize}px
-                      </label>
-                      <input
-                        type="range"
-                        min="14"
-                        max="28"
-                        value={settings.fontSize}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            fontSize: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-2">
-                        Espaçamento: {settings.lineHeight}
-                      </label>
-                      <input
-                        type="range"
-                        min="1.4"
-                        max="2.2"
-                        step="0.1"
-                        value={settings.lineHeight}
-                        onChange={(e) =>
-                          setSettings({
-                            ...settings,
-                            lineHeight: parseFloat(e.target.value),
-                          })
-                        }
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-2">Tema</label>
-                      <select
-                        value={settings.theme}
-                        onChange={(e) =>
-                          setSettings({ ...settings, theme: e.target.value })
-                        }
-                        className="w-full bg-black/50 border border-gray-700 rounded-lg p-2"
-                      >
-                        <option value="dark">Escuro</option>
-                        <option value="sepia">Sépia</option>
-                        <option value="black">Preto Puro</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="max-w-4xl mx-auto px-6 py-12">
@@ -2286,15 +2561,12 @@ service cloud.firestore {
             let firebaseConfig = null;
             let canvasMode = false;
 
-            // 1. Tenta usar as credenciais automáticas (dentro do Canvas)
             if (typeof __firebase_config !== "undefined" && __firebase_config) {
               firebaseConfig = JSON.parse(__firebase_config);
               appId =
                 typeof __app_id !== "undefined" ? __app_id : "default-app-id";
               canvasMode = true;
-            }
-            // 2. Se não estiver no Canvas (ex: GitHub Pages), busca as credenciais no localStorage
-            else {
+            } else {
               setIsStandalone(true);
               const storedConfig = ConfigManager.getFirebaseConfig();
               if (storedConfig && storedConfig.enabled && storedConfig.config) {
@@ -2327,7 +2599,6 @@ service cloud.firestore {
                 },
               );
 
-              // Se estiver no canvas com login automático
               if (canvasMode) {
                 if (
                   typeof __initial_auth_token !== "undefined" &&
@@ -2341,8 +2612,6 @@ service cloud.firestore {
                   await window.FirebaseAPI.signInAnonymously(auth);
                 }
               } else {
-                // Se estiver fora do Canvas, aguarda onAuthStateChanged. Se não tiver usuário, cria anônimo como fallback.
-                // Mas se o usuário quiser, pode logar com Google depois.
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
                   await window.FirebaseAPI.signInAnonymously(auth);
@@ -2362,7 +2631,6 @@ service cloud.firestore {
         useEffect(() => {
           if (!user || !firebaseReady) return;
 
-          // IMPORTANTE: Mesmo em modo standalone, mantemos a mesma hierarquia de diretório recomendada pelo sistema
           const lnRef = window.FirebaseAPI.collection(
             db,
             "artifacts",
@@ -2395,7 +2663,7 @@ service cloud.firestore {
         // PWA Install Prompt & Service Worker Registration
         useEffect(() => {
           const handleBeforeInstallPrompt = (e) => {
-            e.preventDefault(); // Impede o mini-infobar padrão de aparecer
+            e.preventDefault();
             setDeferredPrompt(e);
           };
           window.addEventListener(
@@ -2472,7 +2740,7 @@ service cloud.firestore {
             )}
 
             {showConfigModal && (
-              <FirebaseConfigModal onClose={() => setShowConfigModal(false)} />
+              <SettingsModal onClose={() => setShowConfigModal(false)} />
             )}
           </>
         );
