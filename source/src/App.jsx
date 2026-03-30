@@ -11,6 +11,11 @@ import {
   Maximize2,
   Dices,
   RotateCcw,
+  Copy,
+  ClipboardPaste,
+  ImagePlus,
+  UploadCloud,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function App() {
@@ -26,6 +31,23 @@ export default function App() {
   const [creatorElements, setCreatorElements] = useState([]);
   const [creatorTitle, setCreatorTitle] = useState("");
   const [creatorInstructions, setCreatorInstructions] = useState("");
+
+  // --- ESTADOS DO CRIADOR DE CAPÍTULOS ---
+  const [isCreatingChapter, setIsCreatingChapter] = useState(false);
+  const [newChapterTab, setNewChapterTab] = useState("prompt"); // 'prompt' | 'resposta'
+  const [chapterPrompt, setChapterPrompt] = useState("");
+  const [chapterResponse, setChapterResponse] = useState("");
+  const [validationModal, setValidationModal] = useState({
+    show: false,
+    isValid: false,
+    message: "",
+    data: null,
+  });
+
+  // --- ESTADOS DO ALTERADOR DE CAPA ---
+  const [isChangingCover, setIsChangingCover] = useState(false);
+  const [coverTab, setCoverTab] = useState("prompt");
+  const [coverPrompt, setCoverPrompt] = useState("");
 
   // Estado de Configurações Persistidas
   const [settings, setSettings] = useState(() => {
@@ -236,7 +258,9 @@ export default function App() {
       else if (item.isCreator) setActiveTab("generos");
       else setActiveTab("sinopse");
       setReadingChapter(null);
-      setCoverMode("default");
+      setIsCreatingChapter(false);
+      // No mobile, começa sempre com a capa no modo reduzido (discreet)
+      setCoverMode(window.innerWidth < 768 ? "discreet" : "default");
     } else {
       setCurrentIndex(index);
     }
@@ -245,6 +269,7 @@ export default function App() {
   const closeExpandedView = () => {
     setExpandedItem(null);
     setReadingChapter(null);
+    setIsCreatingChapter(false);
     setActiveTab("");
     setCoverMode("default");
   };
@@ -278,7 +303,48 @@ export default function App() {
     };
   };
 
-  // Funções Auxiliares do Criador
+  const triggerCopy = (text, message) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand("copy");
+      setSavedMessage(message);
+      setTimeout(() => setSavedMessage(""), 3000);
+    } catch (err) {
+      console.error("Falha ao copiar", err);
+    }
+    document.body.removeChild(textArea);
+  };
+
+  // --- FUNÇÕES DE CAPA ---
+  const initCoverChange = () => {
+    const prompt = `Crie uma ilustração estilo anime/light novel. Título da obra: "${expandedItem.title}". Gêneros: ${expandedItem.genres?.join(", ") || "Fantasia"}. Elementos principais: ${expandedItem.elements?.join(", ") || "Magia"}. Estilo de arte vibrante, iluminação dramática, alta qualidade, detalhes ricos, adequado para capa de livro.`;
+    setCoverPrompt(prompt);
+    setCoverTab("prompt");
+    setIsChangingCover(true);
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const newSrc = event.target.result;
+        setExpandedItem((prev) => ({ ...prev, src: newSrc }));
+        setCarouselItems((prev) =>
+          prev.map((item) =>
+            item.id === expandedItem.id ? { ...item, src: newSrc } : item,
+          ),
+        );
+        setIsChangingCover(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // --- FUNÇÕES DO CRIADOR DE NOVEL ---
   const toggleSelection = (list, setList, item) => {
     if (list.includes(item)) setList(list.filter((i) => i !== item));
     else setList([...list, item]);
@@ -316,6 +382,133 @@ export default function App() {
     resetCreator();
     closeExpandedView();
     setCurrentIndex(carouselItems.length - 1);
+  };
+
+  // --- FUNÇÕES DO CRIADOR DE CAPÍTULOS ---
+  const initChapterCreation = () => {
+    const lastChapter =
+      expandedItem.chapters?.length > 0
+        ? expandedItem.chapters[expandedItem.chapters.length - 1]
+        : null;
+    let prompt = `Aja como um escritor profissional de Light Novels.\n\n`;
+    prompt += `TÍTULO DA OBRA: ${expandedItem.title}\n`;
+    prompt += `GÊNEROS: ${expandedItem.genres?.join(", ") || "N/A"}\n`;
+    prompt += `ELEMENTOS: ${expandedItem.elements?.join(", ") || "N/A"}\n`;
+    prompt += `SINOPSE: ${expandedItem.synopsis}\n\n`;
+
+    if (lastChapter) {
+      prompt += `CONTEXTO: O último capítulo lido foi o "${lastChapter.title}".\n`;
+      prompt += `INSTRUÇÃO: Escreva o próximo capítulo (Capítulo ${expandedItem.chapters.length + 1}). Mantenha a consistência com o estilo e desenrole a história com foco no desenvolvimento dos elementos acima. Forneça o título do capítulo na primeira linha.`;
+    } else {
+      prompt += `INSTRUÇÃO: Escreva o PRIMEIRO capítulo desta obra. Apresente o protagonista, o mundo e o gancho inicial da história. Forneça o título do capítulo na primeira linha.`;
+    }
+
+    setChapterPrompt(prompt);
+    setChapterResponse("");
+    setNewChapterTab("prompt");
+    setIsCreatingChapter(true);
+    // Limpa a leitura atual para não bloquear a tela de criação
+    setReadingChapter(null);
+  };
+
+  const handlePasteResponse = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      setChapterResponse(text);
+      setSavedMessage("Texto colado!");
+      setTimeout(() => setSavedMessage(""), 3000);
+    } catch (err) {
+      alert(
+        "O seu navegador bloqueou a colagem automática. Por favor, clique na caixa de texto e pressione Ctrl+V (ou Command+V) para colar manualmente.",
+      );
+    }
+  };
+
+  const triggerValidation = () => {
+    if (!chapterResponse.trim()) {
+      setValidationModal({
+        show: true,
+        isValid: false,
+        message:
+          "A caixa de resposta está vazia. Por favor, cole o texto gerado pela IA antes de tentar validar.",
+        data: null,
+      });
+      return;
+    }
+
+    const lines = chapterResponse
+      .split("\n")
+      .filter((line) => line.trim() !== "");
+    let extractedTitle = `Capítulo ${expandedItem.chapters.length + 1}`;
+    let contentStartIdx = 0;
+
+    if (lines.length > 0) {
+      const firstLine = lines[0].replace(/\*|#/g, "").trim();
+      if (firstLine.length < 80) {
+        extractedTitle = firstLine;
+        contentStartIdx = 1;
+      }
+    }
+
+    const content =
+      lines.slice(contentStartIdx).join("\n").trim() || chapterResponse;
+
+    if (content.length < 100) {
+      setValidationModal({
+        show: true,
+        isValid: false,
+        message:
+          "O texto fornecido é demasiado curto para ser um capítulo válido. Verifique se copiou a resposta completa da IA.",
+        data: null,
+      });
+      return;
+    }
+
+    const newChap = {
+      id: Date.now(),
+      title: extractedTitle,
+      date: new Date().toLocaleDateString("pt-BR"),
+      author: "IA",
+      content: content,
+    };
+
+    setValidationModal({
+      show: true,
+      isValid: true,
+      message: `Título detetado: "${extractedTitle}". O conteúdo possui ${content.length} caracteres. O capítulo parece estar bem formatado e pronto para ser guardado.`,
+      data: newChap,
+    });
+  };
+
+  const confirmValidation = () => {
+    if (!validationModal.isValid || !validationModal.data) return;
+
+    const newChap = validationModal.data;
+
+    setCarouselItems((prev) =>
+      prev.map((item) => {
+        if (item.id === expandedItem.id) {
+          return { ...item, chapters: [...item.chapters, newChap] };
+        }
+        return item;
+      }),
+    );
+
+    setExpandedItem((prev) => ({
+      ...prev,
+      chapters: [...prev.chapters, newChap],
+    }));
+
+    setValidationModal({
+      show: false,
+      isValid: false,
+      message: "",
+      data: null,
+    });
+    setIsCreatingChapter(false);
+    setActiveTab("capitulos");
+    setSavedMessage("Capítulo adicionado com sucesso!");
+    setTimeout(() => setSavedMessage(""), 3000);
   };
 
   // --- RENDERIZAÇÕES ---
@@ -693,7 +886,7 @@ export default function App() {
                   expandedItem.elements.map((element, idx) => (
                     <span
                       key={idx}
-                      className="px-4 py-1.5 bg-card border border-subtle text-main text-xs md:text-sm font-medium rounded-lg shadow-sm hover:border-accent transition-colors cursor-default"
+                      className="px-4 py-1.5 bg-[#2d1b4e] border border-[#581c87] text-[#e9d5ff] text-xs md:text-sm font-medium rounded-full shadow-sm hover:bg-[#3b2363] transition-colors cursor-default"
                     >
                       {element}
                     </span>
@@ -762,9 +955,12 @@ export default function App() {
                 <BookOpen size={18} />
                 Continuar Leitura
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 bg-card text-main border border-subtle hover:border-strong py-3 rounded-xl font-medium transition-all text-sm sm:text-base">
+              <button
+                onClick={initChapterCreation}
+                className="flex-1 flex items-center justify-center gap-2 bg-card text-main border border-subtle hover:border-strong py-3 rounded-xl font-medium transition-all text-sm sm:text-base"
+              >
+                Novo Capítulo
                 <Plus size={18} />
-                Criar Novo
               </button>
             </div>
           </div>
@@ -912,7 +1108,6 @@ export default function App() {
             className={`absolute top-0 left-1/2 -ml-[160px] w-[320px] h-[480px] rounded-2xl overflow-hidden shadow-2xl cursor-pointer flex flex-col bg-card border ${item.isCreator ? "border-dashed border-strong" : "border-subtle"} transition-all hover:ring-2 hover:ring-accent`}
             style={{
               ...getTransformStyles(index),
-              transformStyle: "preserve-3d",
               boxShadow:
                 index === currentIndex
                   ? "0 0 30px var(--accent-muted)"
@@ -970,7 +1165,7 @@ export default function App() {
         </button>
       </div>
 
-      {/* Telas Sobrepostas (Detalhes ou Leitura) */}
+      {/* Telas Sobrepostas (Detalhes, Leitura ou Criação) */}
       {expandedItem && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-2 sm:p-4 md:p-10"
@@ -1020,7 +1215,10 @@ export default function App() {
                       )}
 
                       {isLast ? (
-                        <button className="flex items-center gap-1 px-3 py-1.5 md:px-4 md:py-2 bg-accent hover-bg-accent text-accent-text rounded-lg transition-all font-medium text-xs md:text-sm shadow-accent">
+                        <button
+                          onClick={initChapterCreation}
+                          className="flex items-center gap-1 px-3 py-1.5 md:px-4 md:py-2 bg-accent hover-bg-accent text-accent-text rounded-lg transition-all font-medium text-xs md:text-sm shadow-accent"
+                        >
                           <span className="hidden sm:inline">
                             Novo Capítulo
                           </span>
@@ -1070,15 +1268,113 @@ export default function App() {
                 </div>
               );
             })()
-          ) : (
-            // --- TELA DE DETALHES OU CONFIGURAÇÕES OU CRIADOR ---
+          ) : isCreatingChapter ? (
+            // --- TELA CRIADOR DE NOVO CAPÍTULO ---
             <div
-              className="relative w-full h-full max-w-6xl bg-panel border border-subtle rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden animate-pop-out"
-              style={{ transformStyle: "preserve-3d" }}
+              className="w-full h-full bg-panel border border-subtle rounded-2xl shadow-2xl flex flex-col p-4 sm:p-6 md:p-10 animate-pop-out overflow-hidden isolate"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6 flex-shrink-0 w-full">
+                <button
+                  onClick={() => setIsCreatingChapter(false)}
+                  className="flex items-center gap-2 text-muted hover:text-main transition-colors text-sm md:text-base font-medium w-fit"
+                >
+                  <ArrowLeft size={18} /> Voltar para Detalhes
+                </button>
+                <div className="flex gap-4 border-b border-strong relative hide-scrollbar overflow-x-auto">
+                  {[
+                    { id: "prompt", label: "PROMPT" },
+                    { id: "resposta", label: "RESPOSTA" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setNewChapterTab(tab.id)}
+                      className={`pb-3 text-xs md:text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap ${
+                        newChapterTab === tab.id
+                          ? "text-accent"
+                          : "text-muted hover:text-main"
+                      }`}
+                    >
+                      {tab.label}
+                      {newChapterTab === tab.id && (
+                        <div
+                          className="absolute bottom-[-1px] left-0 w-full h-[3px] bg-accent rounded-t-full shadow-accent"
+                          style={{ transition: "all 0.3s ease" }}
+                        ></div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {savedMessage && (
+                <p className="text-accent font-medium text-sm mb-4 text-center animate-fade-in flex-shrink-0">
+                  {savedMessage}
+                </p>
+              )}
+
+              {newChapterTab === "prompt" ? (
+                <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
+                  <p className="text-muted text-sm mb-3">
+                    Este é o prompt base criado com as informações da sua novel.
+                    Edite conforme a sua imaginação mandar e depois copie!
+                  </p>
+                  <textarea
+                    value={chapterPrompt}
+                    onChange={(e) => setChapterPrompt(e.target.value)}
+                    className="flex-grow w-full bg-app border border-subtle text-main p-4 rounded-xl resize-none outline-none focus:ring-2 focus:ring-accent custom-scrollbar transition-colors mb-4"
+                  />
+                  <div className="flex justify-end flex-shrink-0 pt-2 border-t border-subtle">
+                    <button
+                      onClick={() =>
+                        triggerCopy(
+                          chapterPrompt,
+                          "Prompt copiado para a área de transferência!",
+                        )
+                      }
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 bg-accent text-accent-text hover:bg-accent-hover py-3 px-6 rounded-xl font-bold transition-all text-sm sm:text-base shadow-accent"
+                    >
+                      <Copy size={18} /> Copiar Prompt
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-grow flex flex-col overflow-hidden animate-fade-in">
+                  <p className="text-muted text-sm mb-3">
+                    Cole a resposta da IA abaixo e clique em Validar para
+                    adicioná-la à sua novel.
+                  </p>
+                  <textarea
+                    value={chapterResponse}
+                    onChange={(e) => setChapterResponse(e.target.value)}
+                    placeholder="Cole a resposta gerada pela IA aqui..."
+                    className="flex-grow w-full bg-app border border-subtle text-main p-4 rounded-xl resize-none outline-none focus:ring-2 focus:ring-accent custom-scrollbar transition-colors mb-4"
+                  />
+                  <div className="flex flex-col sm:flex-row justify-between sm:justify-end gap-3 flex-shrink-0 pt-2 border-t border-subtle">
+                    <button
+                      onClick={handlePasteResponse}
+                      className="flex items-center justify-center gap-2 bg-card text-main border border-subtle hover:border-accent py-3 px-6 rounded-xl font-medium transition-all text-sm sm:text-base"
+                    >
+                      <ClipboardPaste size={18} /> Colar Texto
+                    </button>
+                    <button
+                      onClick={triggerValidation}
+                      className="flex items-center justify-center gap-2 bg-accent text-accent-text hover:bg-accent-hover py-3 px-6 rounded-xl font-bold transition-all text-sm sm:text-base shadow-accent"
+                    >
+                      <Check size={18} /> Validar e Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // --- TELA DE DETALHES OU CONFIGURAÇÕES OU CRIADOR DE NOVELS ---
+            <div
+              className={`relative w-full h-full max-w-6xl bg-panel border border-subtle rounded-2xl shadow-2xl flex flex-col ${coverMode === "default" && !expandedItem.isCreator ? "md:flex-row" : ""} overflow-hidden animate-pop-out isolate`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Botões Superiores Direito */}
-              <div className="absolute top-3 right-3 md:top-4 md:right-4 z-20 flex gap-2">
+              <div className="absolute top-3 right-3 md:top-4 md:right-4 z-50 flex gap-2">
                 <button
                   className={`p-2 rounded-full transition-all backdrop-blur-md border ${coverMode === "full" && !expandedItem.isCreator ? "bg-black/30 hover:bg-black/60 text-white border-white/10" : "bg-card border-subtle hover:border-strong text-main shadow-sm"}`}
                   onClick={closeExpandedView}
@@ -1089,15 +1385,35 @@ export default function App() {
               </div>
 
               {/* Esquerda: Capa Ampliada */}
-              {coverMode !== "discreet" && !expandedItem.isCreator && (
+              {!expandedItem.isCreator && (
                 <div
                   className={`
-                    ${coverMode === "full" ? "w-full h-full absolute inset-0 z-10" : "w-full md:w-[40%] lg:w-[35%] h-56 sm:h-64 md:h-full relative"}
-                    bg-app flex-shrink-0 transition-all duration-500 ease-in-out border-r border-subtle group cursor-pointer overflow-hidden
+                    ${
+                      coverMode === "full"
+                        ? "w-full h-full absolute inset-0 z-10"
+                        : coverMode === "discreet"
+                          ? "w-full h-24 sm:h-32 md:h-40 relative border-b border-subtle"
+                          : "w-full md:w-[40%] lg:w-[35%] h-56 sm:h-64 md:h-full relative border-b md:border-b-0 md:border-r border-subtle"
+                    }
+                    bg-app flex-shrink-0 transition-all duration-500 ease-in-out group cursor-pointer overflow-hidden
                   `}
                   onClick={toggleCoverMode}
                   title="Clique para alternar tamanho da capa"
                 >
+                  {/* Botão Flutuante Alterar Capa */}
+                  {!expandedItem.isSettings && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        initCoverChange();
+                      }}
+                      className="absolute top-3 left-3 md:top-4 md:left-4 z-40 p-2.5 sm:p-3 bg-black/50 hover:bg-black/80 text-white rounded-full backdrop-blur-md transition-all border border-white/20 shadow-lg group-hover:opacity-100 opacity-80"
+                      title="Alterar Capa da Novel"
+                    >
+                      <ImagePlus size={20} className="md:w-6 md:h-6" />
+                    </button>
+                  )}
+
                   <>
                     <div className="absolute inset-0 flex items-center justify-center bg-panel z-0">
                       <span className="text-muted font-bold text-lg md:text-xl text-center px-4">
@@ -1129,7 +1445,7 @@ export default function App() {
                   </div>
 
                   {coverMode === "default" && (
-                    <div className="absolute inset-x-0 bottom-0 h-32 md:h-48 bg-gradient-to-t from-[var(--bg-surface)] to-transparent md:hidden pointer-events-none z-20"></div>
+                    <div className="absolute inset-x-0 bottom-0 h-32 md:h-48 bg-gradient-to-t from-[var(--bg-surface)] to-transparent pointer-events-none z-20"></div>
                   )}
                 </div>
               )}
@@ -1144,21 +1460,7 @@ export default function App() {
               >
                 {/* Título */}
                 <div className="flex items-center gap-4 mb-6 md:mb-8 flex-shrink-0 mt-6 md:mt-0">
-                  {coverMode === "discreet" &&
-                    expandedItem.src &&
-                    !expandedItem.isCreator && (
-                      <img
-                        src={expandedItem.src}
-                        alt={expandedItem.title}
-                        className="w-14 h-20 sm:w-16 sm:h-24 object-cover rounded-lg shadow-md border border-subtle flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-accent transition-all"
-                        onClick={toggleCoverMode}
-                        title="Restaurar tamanho da capa"
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                        }}
-                      />
-                    )}
-                  <h1 className="text-3xl md:text-5xl font-extrabold text-main leading-tight truncate tracking-tight pr-12">
+                  <h1 className="text-2xl sm:text-3xl md:text-5xl font-extrabold text-main leading-tight tracking-tight break-words pr-24 sm:pr-28 md:pr-32 w-full">
                     {expandedItem.title}
                   </h1>
                 </div>
@@ -1215,6 +1517,158 @@ export default function App() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* --- MODAL ALTERADOR DE CAPA --- */}
+      {isChangingCover && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setIsChangingCover(false)}
+        >
+          <div
+            className="w-full max-w-lg bg-panel border border-subtle rounded-2xl shadow-2xl overflow-hidden flex flex-col isolate"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-subtle">
+              <h2 className="text-xl font-bold text-main flex items-center gap-2">
+                <ImagePlus size={24} className="text-accent" /> Alterar Capa
+              </h2>
+              <button
+                onClick={() => setIsChangingCover(false)}
+                className="text-muted hover:text-main transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex gap-4 border-b border-strong px-4 sm:px-6 mt-4">
+              {[
+                { id: "prompt", label: "GERAR PROMPT" },
+                { id: "arquivo", label: "ENVIAR FICHEIRO" },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setCoverTab(tab.id)}
+                  className={`pb-3 text-xs md:text-sm font-bold uppercase tracking-wider transition-colors relative whitespace-nowrap ${
+                    coverTab === tab.id
+                      ? "text-accent"
+                      : "text-muted hover:text-main"
+                  }`}
+                >
+                  {tab.label}
+                  {coverTab === tab.id && (
+                    <div className="absolute bottom-[-1px] left-0 w-full h-[3px] bg-accent rounded-t-full shadow-accent"></div>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-4 sm:p-6">
+              {coverTab === "prompt" ? (
+                <div className="animate-fade-in flex flex-col">
+                  <p className="text-sm text-muted mb-3">
+                    Copie o prompt abaixo e use numa ferramenta de IA (como o
+                    Midjourney ou DALL-E) para gerar a sua capa ideal.
+                  </p>
+                  <textarea
+                    value={coverPrompt}
+                    onChange={(e) => setCoverPrompt(e.target.value)}
+                    className="w-full h-32 bg-app border border-subtle text-main p-4 rounded-xl resize-none outline-none focus:ring-2 focus:ring-accent custom-scrollbar transition-colors mb-4"
+                  />
+                  <button
+                    onClick={() =>
+                      triggerCopy(coverPrompt, "Prompt da capa copiado!")
+                    }
+                    className="w-full flex items-center justify-center gap-2 bg-accent text-accent-text hover:bg-accent-hover py-3 rounded-xl font-bold transition-all shadow-accent"
+                  >
+                    <Copy size={18} /> Copiar Prompt
+                  </button>
+                  {savedMessage && (
+                    <p className="text-accent font-medium text-sm mt-3 text-center">
+                      {savedMessage}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="animate-fade-in flex flex-col items-center justify-center py-8">
+                  <label className="w-full h-40 border-2 border-dashed border-subtle hover:border-accent bg-app hover:bg-card rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all group">
+                    <UploadCloud
+                      size={48}
+                      className="text-muted group-hover:text-accent mb-4 transition-colors"
+                    />
+                    <span className="text-main font-medium group-hover:text-accent transition-colors">
+                      Clique para escolher a imagem
+                    </span>
+                    <span className="text-muted text-sm mt-1">
+                      PNG, JPG ou JPEG
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL DE VALIDAÇÃO DE CAPÍTULO --- */}
+      {validationModal.show && (
+        <div
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() =>
+            setValidationModal({ ...validationModal, show: false })
+          }
+        >
+          <div
+            className="w-full max-w-md bg-panel border border-subtle rounded-2xl shadow-2xl p-6 sm:p-8 flex flex-col items-center text-center isolate"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 shadow-lg ${validationModal.isValid ? "bg-green-500/20 text-green-500 ring-2 ring-green-500/50" : "bg-red-500/20 text-red-500 ring-2 ring-red-500/50"}`}
+            >
+              {validationModal.isValid ? (
+                <Check size={32} />
+              ) : (
+                <AlertTriangle size={32} />
+              )}
+            </div>
+
+            <h2 className="text-2xl font-bold text-main mb-3">
+              {validationModal.isValid
+                ? "Capítulo Válido"
+                : "Resposta Inválida"}
+            </h2>
+
+            <p className="text-muted text-base leading-relaxed mb-8">
+              {validationModal.message}
+            </p>
+
+            <div className="flex w-full gap-3">
+              <button
+                onClick={() =>
+                  setValidationModal({ ...validationModal, show: false })
+                }
+                className="flex-1 bg-card border border-subtle hover:border-strong text-main py-3 rounded-xl font-medium transition-colors"
+              >
+                {validationModal.isValid ? "Cancelar" : "Voltar e Editar"}
+              </button>
+
+              {validationModal.isValid && (
+                <button
+                  onClick={confirmValidation}
+                  className="flex-1 bg-accent hover:bg-accent-hover text-accent-text py-3 rounded-xl font-bold transition-all shadow-accent"
+                >
+                  Salvar Capítulo
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
