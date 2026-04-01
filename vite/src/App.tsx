@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { BookOpen, Home, Settings } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import FactoryWorkspace from './pages/FactoryWorkspace';
