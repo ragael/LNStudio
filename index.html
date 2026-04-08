@@ -1,19 +1,748 @@
-<!doctype html>
-<html lang="pt-PT">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LN Studio</title>
-    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <link rel="manifest" href="./manifest.json" />
-    <meta name="theme-color" content="#0a0a0a" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LN Studio" />
-    <script type="module" crossorigin src="./assets/index-DfCqgaQq.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-BMPr1OJb.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LN Reader Studio</title>
+
+  <!-- Meta Tags para iOS e PWA -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LN Reader">
+  <meta name="theme-color" content="#12121a">
+  <link rel="apple-touch-icon"
+    href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzNiODJmNiIvPjx0ZXh0IHk9IjUyJSIgeD0iNTAlIiBkeT0iLjM1ZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI0NXB4IiBmaWxsPSIjZmZmIj5MTjwvdGV4dD48L3N2Zz4=">
+
+  <!-- Tailwind CSS para Estilização -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Phosphor Icons (Ícones) -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel (Para compilar o JSX direto no navegador) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Injeção Dinâmica do PWA Manifest -->
+  <script>
+    (function () {
+      const manifest = {
+        name: "LN Reader Studio",
+        short_name: "LN Reader",
+        description: "Leitor de Light Novels PWA Offline",
+        start_url: "./",
+        display: "standalone",
+        background_color: "#12121a",
+        theme_color: "#3b82f6",
+        icons: [{
+          src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzNiODJmNiIvPjx0ZXh0IHk9IjUyJSIgeD0iNTAlIiBkeT0iLjM1ZW0iIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iYm9sZCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1zaXplPSI0NXB4IiBmaWxsPSIjZmZmIj5MTjwvdGV4dD48L3N2Zz4=",
+          sizes: "512x512",
+          type: "image/svg+xml"
+        }]
+      };
+      const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+      const url = URL.createObjectURL(blob);
+      document.write('<link rel="manifest" href="' + url + '">');
+    })();
+  </script>
+
+  <style>
+    /* Estilizações base e barra de rolagem customizada */
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(150, 150, 150, 0.3);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(150, 150, 150, 0.5);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root" class="h-full w-full"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // --- SISTEMA OFFLINE (IndexedDB) ---
+    // Permite guardar o JSON em cache profundo (ultrapassa limite de 5MB do localStorage)
+    const DB_NAME = 'LNReaderDB';
+    const STORE_NAME = 'novelsStore';
+
+    const initDB = () => {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+      });
+    };
+
+    const saveOfflineData = async (data) => {
+      try {
+        const db = await initDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).put(data, 'cachedExport');
+        return new Promise(resolve => { tx.oncomplete = () => resolve(); tx.onerror = () => resolve(); });
+      } catch (e) { console.warn('Falha ao guardar cache offline', e); }
+    };
+
+    const loadOfflineData = async () => {
+      try {
+        const db = await initDB();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const request = tx.objectStore(STORE_NAME).get('cachedExport');
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+      } catch (e) { return null; }
+    };
+
+    // --- CONFIGURAÇÃO DE TEMAS ---
+    const THEMES = {
+      modern: {
+        id: 'modern', name: 'Moderno', icon: 'ph-sun',
+        appBg: 'bg-gray-50', navBg: 'bg-white shadow-sm',
+        text: 'text-gray-900', textMuted: 'text-gray-500',
+        accent: 'text-blue-600', bgAccent: 'bg-blue-50',
+        border: 'border-gray-200', font: 'font-sans',
+        card: 'bg-white shadow-sm hover:shadow-md border border-gray-100 transition-all',
+        button: 'bg-blue-600 text-white hover:bg-blue-700',
+        buttonOutline: 'border border-gray-300 text-gray-700 hover:bg-gray-50',
+      },
+      classic: {
+        id: 'classic', name: 'Clássico', icon: 'ph-book-open',
+        appBg: 'bg-[#f4ecd8]', navBg: 'bg-[#eaddc5] shadow-sm',
+        text: 'text-[#4a3b32]', textMuted: 'text-[#7a6b5a]',
+        accent: 'text-[#8b2323]', bgAccent: 'bg-[#eaddc5]',
+        border: 'border-[#d4c5ab]', font: 'font-serif',
+        card: 'bg-[#fdf9f1] shadow-md hover:shadow-lg border border-[#eaddc5] transition-all',
+        button: 'bg-[#5c4a3d] text-[#f4ecd8] hover:bg-[#4a3b32]',
+        buttonOutline: 'border border-[#5c4a3d] text-[#5c4a3d] hover:bg-[#eaddc5]',
+      },
+      futuristic: {
+        id: 'futuristic', name: 'Futurista', icon: 'ph-monitor',
+        appBg: 'bg-[#0a0a0f]', navBg: 'bg-[#12121a] border-b border-[#00f0ff]/20 shadow-[0_4px_15px_rgba(0,240,255,0.05)]',
+        text: 'text-[#e0e0ff]', textMuted: 'text-[#8a8aAA]',
+        accent: 'text-[#00f0ff]', bgAccent: 'bg-[#00f0ff]/10',
+        border: 'border-[#00f0ff]/30', font: 'font-mono',
+        card: 'bg-[#12121a] border border-[#00f0ff]/20 shadow-[0_0_10px_rgba(0,240,255,0.05)] hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all',
+        button: 'bg-transparent border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff]/20 shadow-[0_0_10px_rgba(0,240,255,0.2)]',
+        buttonOutline: 'border border-[#8a8aAA]/50 text-[#e0e0ff] hover:bg-[#8a8aAA]/10',
+      }
+    };
+
+    const FONT_SIZES = {
+      sm: 'text-sm md:text-base', md: 'text-base md:text-lg',
+      lg: 'text-lg md:text-xl', xl: 'text-xl md:text-2xl',
+    };
+
+    function App() {
+      const [novels, setNovels] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
+      // Navegação e Estado de Leitura
+      const [currentView, setCurrentView] = useState('library');
+      const [activeNovel, setActiveNovel] = useState(null);
+      const [activeChapterIndex, setActiveChapterIndex] = useState(0);
+      const [isFullscreenCover, setIsFullscreenCover] = useState(false);
+
+      // Preferências PWA e Instalação
+      const [installPrompt, setInstallPrompt] = useState(null);
+
+      // Preferências Leitura
+      const [themeId, setThemeId] = useState(() => localStorage.getItem('ln-theme') || 'modern');
+      const [fontSize, setFontSize] = useState(() => localStorage.getItem('ln-fontsize') || 'md');
+      const [textAlign, setTextAlign] = useState(() => localStorage.getItem('ln-textalign') || 'text-justify');
+      const [showSettings, setShowSettings] = useState(false);
+      const [isUIHidden, setIsUIHidden] = useState(false);
+
+      // Sistema de Progresso: { [novelId]: { lastChapterIndex: 0, scrollPositions: { 0: 0.45, 1: 0.99 } } }
+      const [progress, setProgress] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('ln-progress')) || {}; }
+        catch (e) { return {}; }
+      });
+
+      const scrollContainerRef = useRef(null);
+      const scrollTimeoutRef = useRef(null);
+
+      const theme = THEMES[themeId];
+
+      useEffect(() => {
+        localStorage.setItem('ln-theme', themeId);
+        localStorage.setItem('ln-fontsize', fontSize);
+        localStorage.setItem('ln-textalign', textAlign);
+      }, [themeId, fontSize, textAlign]);
+
+      // Listener para PWA Install Prompt
+      useEffect(() => {
+        const handleBeforeInstall = (e) => {
+          e.preventDefault();
+          setInstallPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      }, []);
+
+      // Carregamento Inicial do JSON com Fallback Offline
+      useEffect(() => {
+        const fetchJson = async () => {
+          try {
+            setLoading(true);
+            const response = await fetch('./ln-studio-export-both.json');
+            if (!response.ok) throw new Error('Ficheiro não encontrado no servidor.');
+            const data = await response.json();
+            const novelsData = Array.isArray(data) ? data : [data];
+            setNovels(novelsData);
+            await saveOfflineData(novelsData); // Guarda na cache offline
+          } catch (err) {
+            console.warn("Fetch falhou. A tentar carregar dados offline...");
+            const offlineData = await loadOfflineData();
+            if (offlineData && offlineData.length > 0) {
+              setNovels(offlineData);
+            } else {
+              setError("Não foi possível carregar a obra. Verifique a sua ligação à internet para o primeiro carregamento.");
+            }
+          } finally {
+            setLoading(false);
+          }
+        };
+        fetchJson();
+      }, []);
+
+      const triggerInstall = async () => {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        const { outcome } = await installPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setInstallPrompt(null);
+        }
+      };
+
+      const getChapters = (novel) => novel?.chapters || [];
+
+      // --- SISTEMA DE PROGRESSO E SCROLL ---
+      const getNovelKey = (novel) => novel?.id || novel?.title;
+
+      const updateProgress = (novelId, updates) => {
+        setProgress(prev => {
+          const currentProg = prev[novelId] || { scrollPositions: {} };
+          const newProg = { ...prev, [novelId]: { ...currentProg, ...updates } };
+          localStorage.setItem('ln-progress', JSON.stringify(newProg));
+          return newProg;
+        });
+      };
+
+      const goToChapter = (idx) => {
+        setActiveChapterIndex(idx);
+        if (activeNovel) {
+          updateProgress(getNovelKey(activeNovel), { lastChapterIndex: idx });
+        }
+      };
+
+      const handleScroll = (e) => {
+        if (!activeNovel) return;
+        const el = e.target;
+        const roled = el.scrollTop;
+        const totalScrollable = el.scrollHeight - el.clientHeight;
+        const percentage = totalScrollable > 0 ? (roled / totalScrollable) : 0;
+
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = setTimeout(() => {
+          const nKey = getNovelKey(activeNovel);
+          setProgress(prev => {
+            const currentProg = prev[nKey] || { scrollPositions: {} };
+            const newProg = {
+              ...prev,
+              [nKey]: {
+                ...currentProg,
+                scrollPositions: { ...currentProg.scrollPositions, [activeChapterIndex]: percentage }
+              }
+            };
+            localStorage.setItem('ln-progress', JSON.stringify(newProg));
+            return newProg;
+          });
+        }, 300);
+      };
+
+      useEffect(() => {
+        if (currentView === 'reader' && activeNovel && scrollContainerRef.current) {
+          const nKey = getNovelKey(activeNovel);
+          const savedPerc = progress[nKey]?.scrollPositions?.[activeChapterIndex] || 0;
+
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (scrollContainerRef.current) {
+                const el = scrollContainerRef.current;
+                const totalScrollable = el.scrollHeight - el.clientHeight;
+                el.scrollTop = savedPerc * totalScrollable;
+              }
+            });
+          });
+        }
+      }, [currentView, activeChapterIndex, activeNovel, fontSize, textAlign]);
+
+
+      // --- RENDERIZADORES ---
+
+      const renderLibrary = () => (
+        <div className="h-full overflow-y-auto p-6 animate-fade-in">
+          <div className="max-w-6xl mx-auto">
+            <header className="mb-10 flex justify-between items-center">
+              <div>
+                <h1 className={`text-4xl font-bold mb-2 ${theme.text}`}>A Minha Biblioteca</h1>
+                <p className={theme.textMuted}>{novels.length} obra(s) encontrada(s)</p>
+              </div>
+              <button onClick={() => setShowSettings(!showSettings)} className={`p-3 rounded-full ${theme.buttonOutline}`}>
+                <i className="ph ph-gear text-2xl"></i>
+              </button>
+            </header>
+
+            {showSettings && renderSettingsPanel()}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
+              {novels.map((novel) => {
+                const nKey = getNovelKey(novel);
+                const novelProg = progress[nKey];
+                const hasProgress = novelProg && novelProg.lastChapterIndex !== undefined;
+
+                return (
+                  <div key={nKey}
+                    className={`rounded-xl overflow-hidden cursor-pointer flex flex-col h-full ${theme.card}`}
+                    onClick={() => { setActiveNovel(novel); setCurrentView('details'); }}>
+
+                    {novel.coverImageBase64 ? (
+                      <div className="h-64 w-full overflow-hidden relative">
+                        <img src={novel.coverImageBase64} className="w-full h-full object-cover transition-transform duration-300 hover:scale-105" />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex justify-between items-end">
+                          <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-full backdrop-blur-sm">
+                            {getChapters(novel).length} Capítulos
+                          </span>
+                          {hasProgress && (
+                            <span className="text-white text-xs px-2 py-1 bg-blue-600/80 rounded-full flex items-center gap-1">
+                              <i className="ph ph-bookmark-simple-fill"></i> Cap {novelProg.lastChapterIndex + 1}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className={`h-64 w-full flex items-center justify-center ${theme.bgAccent}`}>
+                        <i className={`ph ph-book-open text-5xl ${theme.textMuted}`}></i>
+                      </div>
+                    )}
+
+                    <div className="p-5 flex-grow flex flex-col">
+                      <h2 className={`text-xl font-bold mb-2 line-clamp-2 ${theme.text}`}>{novel.title}</h2>
+                      <div className="flex flex-wrap gap-2 mt-auto pt-4">
+                        {novel.genres?.slice(0, 3).map((genre, idx) => (
+                          <span key={idx} className={`text-xs px-2 py-1 rounded-md ${theme.bgAccent} ${theme.accent}`}>{genre}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      );
+
+      const renderDetails = () => {
+        if (!activeNovel) return null;
+        const chapters = getChapters(activeNovel);
+        const nKey = getNovelKey(activeNovel);
+        const novelProg = progress[nKey] || {};
+        const lastIdx = novelProg.lastChapterIndex || 0;
+        const hasStarted = Object.keys(novelProg.scrollPositions || {}).length > 0;
+
+        return (
+          <div className="h-full overflow-y-auto animate-fade-in relative">
+            <div className="max-w-4xl mx-auto p-4 md:p-6 pb-20">
+              <button onClick={() => setCurrentView('library')} className={`mb-6 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${theme.buttonOutline}`}>
+                <i className="ph ph-arrow-left text-xl"></i> Voltar
+              </button>
+
+              <div className={`rounded-2xl p-6 md:p-8 mb-8 flex flex-col md:flex-row gap-8 ${theme.card}`}>
+                {activeNovel.coverImageBase64 && (
+                  <img
+                    src={activeNovel.coverImageBase64}
+                    alt="Capa"
+                    onClick={() => setIsFullscreenCover(true)}
+                    className="w-full md:w-64 h-auto object-cover rounded-xl shadow-lg flex-shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity"
+                  />
+                )}
+
+                <div className="flex-grow">
+                  <h1 className={`text-3xl md:text-5xl font-bold mb-4 ${theme.text}`}>{activeNovel.title}</h1>
+
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {activeNovel.genres?.map((genre, idx) => (
+                      <span key={idx} className={`text-sm px-3 py-1 rounded-full border ${theme.border} ${theme.text}`}>{genre}</span>
+                    ))}
+                  </div>
+
+                  {activeNovel.additionalNotes && activeNovel.additionalNotes.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className={`font-bold mb-2 ${theme.textMuted}`}>Sinopse / Notas:</h3>
+                      <ul className={`list-disc list-inside space-y-1 ${theme.text}`}>
+                        {activeNovel.additionalNotes.map((note, idx) => (
+                          <li key={idx} className="text-sm opacity-90">{note}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {chapters.length > 0 && (
+                    <button
+                      onClick={() => {
+                        goToChapter(lastIdx);
+                        setCurrentView('reader');
+                        setIsUIHidden(false);
+                      }}
+                      className={`mt-6 w-full md:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 ${theme.button}`}
+                    >
+                      <i className="ph ph-book-open text-2xl"></i>
+                      {hasStarted ? `Continuar a Ler (Cap. ${lastIdx + 1})` : 'Começar a Ler'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className={`rounded-2xl p-6 md:p-8 ${theme.card}`}>
+                <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${theme.text}`}>
+                  <i className={`ph ph-list-bullets text-3xl ${theme.accent}`}></i> Índice de Capítulos
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {chapters.map((chapter, idx) => {
+                    const chapTitle = chapter.title || chapter.name || `Capítulo ${idx + 1}`;
+                    const savedScroll = novelProg.scrollPositions?.[idx] || 0;
+                    const progressPercent = Math.round(savedScroll * 100);
+                    const isCompleted = progressPercent > 95;
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          goToChapter(idx);
+                          setCurrentView('reader');
+                          setIsUIHidden(false);
+                        }}
+                        className={`text-left p-4 rounded-xl border flex flex-col justify-center transition-colors hover:border-transparent ${theme.border} hover:${theme.bgAccent}`}
+                      >
+                        <div className="flex justify-between items-center w-full">
+                          <span className={`font-medium truncate ${theme.text}`}>
+                            <span className={`mr-2 font-bold ${theme.accent}`}>{(idx + 1).toString().padStart(2, '0')}.</span>
+                            {chapTitle}
+                          </span>
+                          {isCompleted ? (
+                            <i className="ph-fill ph-check-circle text-green-500 text-xl"></i>
+                          ) : progressPercent > 0 ? (
+                            <span className={`text-xs font-bold ${theme.textMuted}`}>{progressPercent}%</span>
+                          ) : (
+                            <i className={`ph ph-caret-right text-lg ${theme.textMuted}`}></i>
+                          )}
+                        </div>
+                        {/* Barra de progresso visual */}
+                        {progressPercent > 0 && !isCompleted && (
+                          <div className="w-full bg-gray-500/20 h-1 mt-3 rounded-full overflow-hidden">
+                            <div className={`h-full ${theme.bgAccent.replace('bg-', 'bg-blue-')} bg-blue-500`} style={{ width: `${progressPercent}%` }}></div>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal de Capa em Tela Cheia */}
+            {isFullscreenCover && activeNovel.coverImageBase64 && (
+              <div
+                className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+                onClick={() => setIsFullscreenCover(false)}
+              >
+                <img
+                  src={activeNovel.coverImageBase64}
+                  className="max-h-full max-w-full object-contain drop-shadow-2xl rounded-sm"
+                  alt="Capa em Tela Cheia"
+                />
+                <div className="absolute top-4 right-4 text-white/50 text-sm flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
+                  <i className="ph ph-x"></i> Clique para fechar
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      const renderReader = () => {
+        if (!activeNovel) return null;
+        const chapters = getChapters(activeNovel);
+        const chapter = chapters[activeChapterIndex];
+        if (!chapter) return null;
+
+        const chapTitle = chapter.title || chapter.name || `Capítulo ${activeChapterIndex + 1}`;
+
+        let content = "";
+        if (typeof chapter === 'string') {
+          content = chapter;
+        } else {
+          content = chapter.translatedText || chapter.originalText || chapter.content || chapter.text || chapter.body || chapter.generatedText || "";
+          if (!content) {
+            let longestString = "";
+            const findLongestString = (obj) => {
+              if (typeof obj === 'string') {
+                if (!obj.startsWith('data:image') && obj.length > longestString.length) {
+                  longestString = obj;
+                }
+              } else if (Array.isArray(obj)) { obj.forEach(findLongestString); }
+              else if (typeof obj === 'object' && obj !== null) { Object.values(obj).forEach(findLongestString); }
+            };
+            findLongestString(chapter);
+            content = longestString;
+          }
+        }
+
+        const paragraphs = content.split('\n').filter(p => p.trim() !== '');
+
+        return (
+          <div className={`h-screen w-full flex flex-col relative ${theme.appBg} ${theme.font}`}>
+
+            {/* HEADER */}
+            <nav className={`absolute top-0 left-0 right-0 z-50 px-4 py-3 flex justify-between items-center transition-transform duration-300 ease-in-out ${isUIHidden ? '-translate-y-full' : 'translate-y-0'} ${theme.navBg}`}>
+              <button onClick={() => setCurrentView('details')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${theme.text} hover:${theme.bgAccent}`}>
+                <i className="ph ph-arrow-left text-xl"></i> <span className="hidden sm:inline">Voltar</span>
+              </button>
+
+              <h2 className={`font-bold text-center truncate max-w-[50%] ${theme.text}`}>{chapTitle}</h2>
+
+              <div className="relative">
+                <button onClick={() => setShowSettings(!showSettings)} className={`p-2 rounded-lg transition-colors ${theme.text} hover:${theme.bgAccent}`}>
+                  <i className="ph ph-gear text-2xl"></i>
+                </button>
+                {showSettings && (
+                  <div className="absolute right-0 top-12 w-72 origin-top-right">
+                    {renderSettingsPanel(true)}
+                  </div>
+                )}
+              </div>
+            </nav>
+
+            {/* CONTENT AREA */}
+            <main
+              ref={scrollContainerRef}
+              onScroll={handleScroll}
+              onClick={() => { setIsUIHidden(!isUIHidden); setShowSettings(false); }}
+              className="flex-grow h-full overflow-y-auto px-4 pt-24 pb-32 flex justify-center selection:bg-blue-500/30 cursor-pointer scroll-smooth"
+              title="Clique no texto para mostrar/ocultar os menus"
+            >
+              <article className={`w-full max-w-3xl ${FONT_SIZES[fontSize]} ${theme.text}`}>
+                {paragraphs.length > 0 ? (
+                  paragraphs.map((para, idx) => (
+                    <p key={idx} className={`mb-6 leading-relaxed ${textAlign} tracking-wide`}>{para}</p>
+                  ))
+                ) : (
+                  <div className="text-center italic opacity-70 mt-20">Este capítulo parece estar vazio ou o formato não foi reconhecido.</div>
+                )}
+              </article>
+            </main>
+
+            {/* FOOTER */}
+            <div className={`absolute bottom-0 left-0 right-0 z-50 p-4 flex justify-center gap-4 sm:gap-8 border-t backdrop-blur-md transition-transform duration-300 ease-in-out ${isUIHidden ? 'translate-y-full' : 'translate-y-0'} ${theme.navBg} ${theme.border}`}>
+              <button
+                disabled={activeChapterIndex === 0}
+                onClick={() => goToChapter(activeChapterIndex - 1)}
+                className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all ${activeChapterIndex === 0 ? 'opacity-30 cursor-not-allowed grayscale' : theme.buttonOutline}`}
+              >
+                <i className="ph ph-caret-left text-xl"></i> <span className="hidden sm:inline">Anterior</span>
+              </button>
+
+              <div className={`flex items-center justify-center px-4 font-bold ${theme.text}`}>
+                {activeChapterIndex + 1} / {chapters.length}
+              </div>
+
+              <button
+                disabled={activeChapterIndex === chapters.length - 1}
+                onClick={() => goToChapter(activeChapterIndex + 1)}
+                className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all ${activeChapterIndex === chapters.length - 1 ? 'opacity-30 cursor-not-allowed grayscale' : theme.button}`}
+              >
+                <span className="hidden sm:inline">Próximo</span> <i className="ph ph-caret-right text-xl"></i>
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      const renderSettingsPanel = (isFloating = false) => (
+        <div className={`p-5 rounded-xl z-50 ${theme.card} ${isFloating ? 'shadow-2xl border' : 'mb-8'}`} onClick={e => e.stopPropagation()}>
+          <h3 className={`font-bold mb-4 flex items-center gap-2 ${theme.text}`}>
+            <i className={`ph ph-faders text-xl ${theme.accent}`}></i> Preferências
+          </h3>
+
+          {/* Secção PWA / Offline */}
+          <div className={`mb-5 p-4 rounded-xl border ${theme.bgAccent} ${theme.border}`}>
+            <h4 className={`font-bold mb-2 flex items-center gap-2 ${theme.text}`}>
+              <i className="ph ph-wifi-slash"></i> Modo Offline & PWA
+            </h4>
+            <p className={`text-xs mb-3 ${theme.textMuted}`}>Esta aplicação guarda os dados das obras para leitura offline imediata.</p>
+
+            {installPrompt ? (
+              <button
+                onClick={triggerInstall}
+                className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <i className="ph ph-download-simple text-xl"></i> Instalar Aplicação
+              </button>
+            ) : (
+              <p className={`text-xs italic ${theme.textMuted}`}>
+                {window.matchMedia('(display-mode: standalone)').matches
+                  ? '✓ Aplicação já instalada no dispositivo.'
+                  : 'Para instalar, utilize a opção "Adicionar ao Ecrã Principal" no menu do navegador.'}
+              </p>
+            )}
+          </div>
+
+          <div className="mb-5">
+            <span className={`text-sm font-medium mb-2 block ${theme.textMuted}`}>Tema Visual</span>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.values(THEMES).map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setThemeId(t.id)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${themeId === t.id ? `border-blue-500 bg-blue-500/10 ${theme.text}` : `border-transparent ${theme.bgAccent} ${theme.textMuted} hover:opacity-80`}`}
+                >
+                  <i className={`ph ${t.icon} text-2xl mb-1`}></i>
+                  <span className="text-xs font-medium">{t.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-5">
+            <span className={`text-sm font-medium mb-2 block ${theme.textMuted}`}>Tamanho da Fonte</span>
+            <div className="flex rounded-lg overflow-hidden border border-gray-500/20">
+              {['sm', 'md', 'lg', 'xl'].map(size => (
+                <button
+                  key={size}
+                  onClick={() => setFontSize(size)}
+                  className={`flex-1 py-2 flex items-center justify-center transition-colors ${fontSize === size ? `bg-blue-500 text-white font-bold` : `${theme.bgAccent} ${theme.text} hover:opacity-80`}`}
+                >
+                  <i className="ph ph-text-t" style={{ fontSize: size === 'sm' ? '14px' : size === 'md' ? '18px' : size === 'lg' ? '22px' : '26px' }}></i>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <span className={`text-sm font-medium mb-2 block ${theme.textMuted}`}>Alinhamento do Texto</span>
+            <div className="flex rounded-lg overflow-hidden border border-gray-500/20">
+              {[
+                { id: 'text-left', icon: 'ph-text-align-left', label: 'Esquerda' },
+                { id: 'text-center', icon: 'ph-text-align-center', label: 'Centro' },
+                { id: 'text-justify', icon: 'ph-text-align-justify', label: 'Justificado' }
+              ].map(align => (
+                <button
+                  key={align.id}
+                  title={align.label}
+                  onClick={() => setTextAlign(align.id)}
+                  className={`flex-1 py-2 flex items-center justify-center transition-colors ${textAlign === align.id ? `bg-blue-500 text-white font-bold` : `${theme.bgAccent} ${theme.text} hover:opacity-80`}`}
+                >
+                  <i className={`ph ${align.icon} text-xl`}></i>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      );
+
+      // Container principal englobando tudo
+      return (
+        <div className={`h-full w-full transition-colors duration-300 ${theme.appBg} ${theme.font} selection:bg-blue-500/30 overflow-hidden`}>
+
+          {loading && (
+            <div className={`h-full flex flex-col items-center justify-center ${theme.text}`}>
+              <i className={`ph ph-book-open text-6xl animate-bounce mb-4 ${theme.accent}`}></i>
+              <h2 className="text-xl font-bold">A Carregar a Biblioteca...</h2>
+            </div>
+          )}
+
+          {!loading && error && novels.length === 0 && (
+            <div className={`h-full flex flex-col items-center justify-center p-6 text-center ${theme.text}`}>
+              <i className="ph ph-wifi-slash text-6xl text-red-500 mb-6"></i>
+              <h2 className="text-2xl font-bold mb-4">Falha de Ligação</h2>
+              <p className={`mb-8 max-w-md ${theme.textMuted}`}>{error}</p>
+
+              <button
+                onClick={() => window.location.reload()}
+                className={`px-8 py-3 rounded-xl flex items-center gap-2 font-bold shadow-lg transition-transform hover:scale-105 ${theme.button}`}
+              >
+                <i className="ph ph-arrows-clockwise text-xl"></i>
+                Tentar Novamente
+              </button>
+            </div>
+          )}
+
+          {!loading && novels.length > 0 && (
+            <>
+              {currentView === 'library' && renderLibrary()}
+              {currentView === 'details' && renderDetails()}
+              {currentView === 'reader' && renderReader()}
+            </>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
 </html>

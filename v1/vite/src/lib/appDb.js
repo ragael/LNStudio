@@ -10,6 +10,8 @@ export const DEFAULT_READER_SETTINGS = {
 }
 
 const APP_THEME_KEY = 'appTheme'
+const GEMINI_API_KEY_KEY = 'gemini_api_key'
+const GEMINI_MODEL_KEY = 'gemini_model'
 const READER_SETTINGS_KEY = 'readerSettings'
 
 export const appDb = new Dexie('LightNovelStudioDB')
@@ -54,4 +56,6 @@ export const ensureDbDefaults = async () => {
 }
 
 export const getAppThemeKey = () => APP_THEME_KEY
+export const getGeminiApiKeyKey = () => GEMINI_API_KEY_KEY
+export const getGeminiModelKey = () => GEMINI_MODEL_KEY
 export const getReaderSettingsKey = () => READER_SETTINGS_KEY

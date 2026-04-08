@@ -5,12 +5,20 @@ import ConfigManager, {
   DEFAULT_READER_SETTINGS,
 } from '../lib/configManager'
 import StorageManager from '../lib/storageManager'
+import {
+  GEMINI_DEFAULT_MODEL,
+  GEMINI_MODEL_OPTIONS,
+} from '../services/geminiService'
 
 const readerPreviewFonts = {
   serif: 'Georgia, "Times New Roman", serif',
   sans: '"Segoe UI", Tahoma, sans-serif',
   mono: '"Fira Code", "Consolas", monospace',
 }
+
+const API_KEY_SUCCESS_MESSAGE = 'Chave salva localmente com sucesso!'
+
+const maskSecretValue = (value) => '*'.repeat(Math.max(value.length, 18))
 
 const SettingsModal = ({
   appTheme,
@@ -21,21 +29,42 @@ const SettingsModal = ({
 }) => {
   const [activeTab, setActiveTab] = useState('appearance')
   const [readerSettings, setReaderSettings] = useState(DEFAULT_READER_SETTINGS)
+  const [geminiApiKeyInput, setGeminiApiKeyInput] = useState('')
+  const [geminiModel, setGeminiModel] = useState(GEMINI_DEFAULT_MODEL)
+  const [storedGeminiApiKey, setStoredGeminiApiKey] = useState('')
+  const [isGeminiApiKeyMasked, setIsGeminiApiKeyMasked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [busyAction, setBusyAction] = useState(null)
+  const [apiKeyAction, setApiKeyAction] = useState(null)
+  const [feedbackMessage, setFeedbackMessage] = useState('')
   const fileInputRef = useRef(null)
+  const feedbackTimeoutRef = useRef(null)
 
   useEffect(() => {
     let isMounted = true
 
     Promise.all([
       ConfigManager.getReaderSettings(),
+      ConfigManager.getGeminiApiKey(),
+      ConfigManager.getGeminiModel(),
     ])
-      .then(([storedReaderSettings]) => {
+      .then(
+        ([
+          storedReaderSettings,
+          storedGeminiApiKeyValue,
+          storedGeminiModelValue,
+        ]) => {
         if (!isMounted) return
         setReaderSettings(storedReaderSettings)
+        setGeminiModel(storedGeminiModelValue)
+        setStoredGeminiApiKey(storedGeminiApiKeyValue)
+        setGeminiApiKeyInput(
+          storedGeminiApiKeyValue ? maskSecretValue(storedGeminiApiKeyValue) : '',
+        )
+        setIsGeminiApiKeyMasked(Boolean(storedGeminiApiKeyValue))
         setLoading(false)
-      })
+        },
+      )
       .catch((error) => {
         console.error('Erro ao carregar configuracoes:', error)
         if (isMounted) setLoading(false)
@@ -45,6 +74,15 @@ const SettingsModal = ({
       isMounted = false
     }
   }, [])
+
+  useEffect(
+    () => () => {
+      if (feedbackTimeoutRef.current) {
+        window.clearTimeout(feedbackTimeoutRef.current)
+      }
+    },
+    [],
+  )
 
   const updateAppTheme = (theme) => {
     onAppThemeChange(theme)
@@ -61,6 +99,77 @@ const SettingsModal = ({
       return nextSettings
     })
   }
+
+  const showFeedbackMessage = (message) => {
+    setFeedbackMessage(message)
+
+    if (feedbackTimeoutRef.current) {
+      window.clearTimeout(feedbackTimeoutRef.current)
+    }
+
+    feedbackTimeoutRef.current = window.setTimeout(() => {
+      setFeedbackMessage('')
+      feedbackTimeoutRef.current = null
+    }, 3000)
+  }
+
+  const handleGeminiApiKeyFocus = () => {
+    if (!isGeminiApiKeyMasked) return
+
+    setGeminiApiKeyInput('')
+    setIsGeminiApiKeyMasked(false)
+  }
+
+  const handleGeminiApiKeyChange = (event) => {
+    setGeminiApiKeyInput(event.target.value)
+  }
+
+  const handleGeminiModelChange = async (event) => {
+    const nextModel = await ConfigManager.setGeminiModel(event.target.value)
+
+    setGeminiModel(nextModel)
+    showFeedbackMessage('Modelo Gemini atualizado com sucesso!')
+  }
+
+  const handleSaveGeminiApiKey = async () => {
+    const nextApiKey =
+      isGeminiApiKeyMasked && storedGeminiApiKey
+        ? storedGeminiApiKey
+        : geminiApiKeyInput.trim()
+
+    if (!nextApiKey) return
+
+    setApiKeyAction('save')
+
+    try {
+      const savedApiKey = await ConfigManager.setGeminiApiKey(nextApiKey)
+      setStoredGeminiApiKey(savedApiKey)
+      setGeminiApiKeyInput(maskSecretValue(savedApiKey))
+      setIsGeminiApiKeyMasked(true)
+      showFeedbackMessage(API_KEY_SUCCESS_MESSAGE)
+    } finally {
+      setApiKeyAction(null)
+    }
+  }
+
+  const handleRemoveGeminiApiKey = async () => {
+    setApiKeyAction('remove')
+
+    try {
+      await ConfigManager.clearGeminiApiKey()
+      setStoredGeminiApiKey('')
+      setGeminiApiKeyInput('')
+      setIsGeminiApiKeyMasked(false)
+      setFeedbackMessage('')
+    } finally {
+      setApiKeyAction(null)
+    }
+  }
+
+  const canSaveGeminiApiKey = Boolean(
+    (isGeminiApiKeyMasked && storedGeminiApiKey) || geminiApiKeyInput.trim(),
+  )
+  const hasStoredGeminiApiKey = Boolean(storedGeminiApiKey)
 
   const handleExportDatabase = async () => {
     setBusyAction('export')
@@ -126,6 +235,12 @@ const SettingsModal = ({
           </div>
         ) : (
           <div className="fade-in space-y-6">
+            {feedbackMessage && (
+              <div className="rounded-lg border border-emerald-400/35 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                {feedbackMessage}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setActiveTab('appearance')}
@@ -162,6 +277,24 @@ const SettingsModal = ({
                 }
               >
                 Leitura
+              </button>
+              <button
+                onClick={() => setActiveTab('ai')}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === 'ai'
+                    ? 'text-white'
+                    : 'bg-black/30 text-gray-400 hover:bg-black/50'
+                }`}
+                style={
+                  activeTab === 'ai'
+                    ? {
+                        backgroundImage:
+                          'linear-gradient(135deg, var(--theme-accent-from), var(--theme-accent-to))',
+                      }
+                    : undefined
+                }
+              >
+                Integracao IA
               </button>
               <button
                 onClick={() => setActiveTab('database')}
@@ -312,6 +445,130 @@ const SettingsModal = ({
 Kaori ajustou a gola do casaco e observou as luzes neon refletirem no vidro da plataforma. Cada passo adiante parecia prometer um novo capitulo, mais vasto e perigoso do que o anterior.
 
 Se o destino realmente podia ser reescrito, ela comecaria por aquela noite.`}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'ai' && (
+              <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_0.9fr] gap-4">
+                <div className="glass-effect rounded-xl border border-white/10 p-5">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="rounded-lg bg-white/8 p-2 text-white">
+                      <Icons.Google />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-semibold">
+                        Google AI Studio API Key
+                      </h3>
+                      <p className="text-sm text-gray-400">
+                        Configure a chave BYOK para usar recursos de IA no seu
+                        navegador.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-4">
+                    <div className="text-sm font-semibold text-blue-200 mb-3">
+                      Como obter sua chave da API
+                    </div>
+                    <ol className="list-decimal list-inside space-y-2 text-sm text-gray-300">
+                      <li>
+                        Acesse o{' '}
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[var(--theme-accent-from)] underline underline-offset-4 hover:text-white"
+                        >
+                          Google AI Studio
+                        </a>{' '}
+                        e faca login.
+                      </li>
+                      <li>
+                        No menu lateral, clique em &quot;Get API key&quot;.
+                      </li>
+                      <li>
+                        Clique no botao azul &quot;Create API key&quot;.
+                      </li>
+                      <li>
+                        Copie a chave gerada e cole no campo abaixo.
+                      </li>
+                    </ol>
+                  </div>
+                </div>
+
+                <div className="bg-black/30 rounded-xl border border-gray-700/50 p-5 space-y-4">
+                  <div>
+                    <label
+                      htmlFor="gemini-model"
+                      className="block text-sm font-semibold mb-2 text-[var(--theme-accent-from)]"
+                    >
+                      Modelo padrao
+                    </label>
+                    <select
+                      id="gemini-model"
+                      value={geminiModel}
+                      onChange={handleGeminiModelChange}
+                      className="w-full theme-input rounded-xl p-3"
+                    >
+                      {GEMINI_MODEL_OPTIONS.map((modelOption) => (
+                        <option key={modelOption.value} value={modelOption.value}>
+                          {modelOption.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {
+                        GEMINI_MODEL_OPTIONS.find(
+                          (modelOption) => modelOption.value === geminiModel,
+                        )?.description
+                      }
+                    </p>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="gemini-api-key"
+                      className="block text-sm font-semibold mb-2 text-[var(--theme-accent-from)]"
+                    >
+                      Google AI Studio API Key
+                    </label>
+                    <input
+                      id="gemini-api-key"
+                      type="password"
+                      value={geminiApiKeyInput}
+                      onFocus={handleGeminiApiKeyFocus}
+                      onChange={handleGeminiApiKeyChange}
+                      className="w-full theme-input rounded-xl p-3"
+                      placeholder="Cole sua chave aqui"
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-gray-400 mt-2">
+                      {hasStoredGeminiApiKey && isGeminiApiKeyMasked
+                        ? 'Uma chave ja esta cadastrada. Clique no campo para substituir por outra.'
+                        : 'A chave sera armazenada localmente no banco do navegador sob a chave gemini_api_key.'}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={handleSaveGeminiApiKey}
+                      disabled={!canSaveGeminiApiKey || apiKeyAction !== null}
+                      className="theme-primary-btn px-5 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {apiKeyAction === 'save' ? 'Salvando...' : 'Salvar Chave'}
+                    </button>
+                    <button
+                      onClick={handleRemoveGeminiApiKey}
+                      disabled={!hasStoredGeminiApiKey || apiKeyAction !== null}
+                      className="glass-effect px-5 py-3 rounded-xl font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      <Icons.Trash />
+                      {apiKeyAction === 'remove'
+                        ? 'Removendo...'
+                        : 'Remover Chave'}
+                    </button>
                   </div>
                 </div>
               </div>
