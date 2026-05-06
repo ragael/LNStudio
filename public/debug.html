@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Light Novel Studio Debug</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Arial, sans-serif; }
+    body { margin: 24px; line-height: 1.4; }
+    main { max-width: 1100px; margin: 0 auto; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0 28px; }
+    th, td { border: 1px solid #9995; padding: 8px; text-align: left; vertical-align: top; }
+    th { background: #7772; }
+    textarea { box-sizing: border-box; min-height: 110px; width: 100%; }
+    button { cursor: pointer; padding: 8px 12px; }
+    .row { display: flex; gap: 12px; align-items: center; }
+    .muted { opacity: .72; }
+    .response { max-width: 520px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Light Novel Studio Debug</h1>
+
+    <section>
+      <h2>Trabalhadores</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Status</th>
+            <th>Ultimo contato</th>
+            <th>Cool-down</th>
+            <th>Tarefa atual</th>
+            <th>Resposta pendente</th>
+          </tr>
+        </thead>
+        <tbody id="workers"><tr><td colspan="6">Carregando...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Injetar prompt</h2>
+      <form id="prompt-form">
+        <textarea id="prompt" required placeholder="Digite o prompt de teste"></textarea>
+        <div class="row">
+          <button type="submit">Enviar para fila</button>
+          <span id="prompt-status" class="muted"></span>
+        </div>
+      </form>
+    </section>
+
+    <section>
+      <h2>Fila</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Prompt</th><th>Criado em</th></tr></thead>
+        <tbody id="queue"><tr><td colspan="3">Carregando...</td></tr></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Respostas</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Worker</th>
+            <th>Resposta</th>
+            <th>Criada em</th>
+            <th>Consumida em</th>
+            <th>Acao</th>
+          </tr>
+        </thead>
+        <tbody id="results"><tr><td colspan="6">Carregando...</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const workersEl = document.querySelector('#workers');
+    const queueEl = document.querySelector('#queue');
+    const resultsEl = document.querySelector('#results');
+    const statusEl = document.querySelector('#prompt-status');
+
+    function td(text, className) {
+      const cell = document.createElement('td');
+      if (className) cell.className = className;
+      cell.textContent = text == null ? '' : String(text);
+      return cell;
+    }
+
+    function renderRows(tbody, rows, emptyColspan, buildRow) {
+      tbody.replaceChildren();
+      if (!rows.length) {
+        const row = document.createElement('tr');
+        const cell = td('Nenhum registro.');
+        cell.colSpan = emptyColspan;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+      rows.forEach((item) => tbody.appendChild(buildRow(item)));
+    }
+
+    async function consumeResult(id) {
+      await fetch('/resultado/consumir', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resultId: id })
+      });
+      await refresh();
+    }
+
+    async function refresh() {
+      const state = await fetch('/debug/status').then((response) => response.json());
+
+      renderRows(workersEl, state.workers, 6, (worker) => {
+        const row = document.createElement('tr');
+        row.append(
+          td(worker.id),
+          td(worker.status),
+          td(worker.lastContact || ''),
+          td(worker.cooldown),
+          td(worker.currentTask ? worker.currentTask.id : ''),
+          td(worker.waitingResultId || '')
+        );
+        return row;
+      });
+
+      renderRows(queueEl, state.queue, 3, (task) => {
+        const row = document.createElement('tr');
+        row.append(td(task.id), td(task.prompt), td(task.createdAt));
+        return row;
+      });
+
+      renderRows(resultsEl, state.resultados, 6, (result) => {
+        const row = document.createElement('tr');
+        row.append(
+          td(result.id),
+          td(result.workerId),
+          td(result.resposta, 'response'),
+          td(result.createdAt),
+          td(result.consumedAt || '')
+        );
+        const action = document.createElement('td');
+        if (!result.consumedAt) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = 'Consumir';
+          button.addEventListener('click', () => consumeResult(result.id));
+          action.appendChild(button);
+        }
+        row.appendChild(action);
+        return row;
+      });
+    }
+
+    document.querySelector('#prompt-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const prompt = document.querySelector('#prompt').value;
+      statusEl.textContent = 'Enviando...';
+      await fetch('/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      document.querySelector('#prompt').value = '';
+      statusEl.textContent = 'Prompt enviado.';
+      await refresh();
+      setTimeout(() => { statusEl.textContent = ''; }, 2500);
+    });
+
+    refresh();
+    setInterval(refresh, 2000);
+  </script>
+</body>
+</html>

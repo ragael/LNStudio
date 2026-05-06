@@ -50,12 +50,9 @@
     "chapter": {
       "number": "",
 	  "title": "",
-      "content": "",
-      "ai_provider": "",
-      "model": "",
-      "plan": "",
-      "generated_at": ""
+      "content": ""
     },
+	"chapters": [],
     "continuity": {
       "summary": "",
       "protagonist": {

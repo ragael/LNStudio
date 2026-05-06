@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Light Novel Studio</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f6f8;
+        --surface: #ffffff;
+        --surface-soft: #eef3f7;
+        --line: #d6dee6;
+        --text: #17212b;
+        --muted: #617083;
+        --primary: #1f6feb;
+        --primary-dark: #1557bd;
+        --danger: #b42318;
+        --success: #147a3f;
+        --warning: #9a6700;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 14px;
+        letter-spacing: 0;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+
+      button,
+      .link-button {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--surface);
+        color: var(--text);
+        cursor: pointer;
+        min-height: 36px;
+        padding: 0 12px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      button:hover,
+      .link-button:hover {
+        border-color: var(--primary);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+
+      .primary:hover {
+        background: var(--primary-dark);
+      }
+
+      .danger {
+        color: var(--danger);
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+      }
+
+      aside {
+        background: var(--surface);
+        border-right: 1px solid var(--line);
+        padding: 18px;
+        overflow: auto;
+      }
+
+      main {
+        padding: 22px;
+        overflow: auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 18px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.2;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      h2 {
+        font-size: 17px;
+        margin-bottom: 12px;
+      }
+
+      h3 {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .section {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .worker-field {
+        flex: 1 1 260px;
+        min-width: 220px;
+      }
+
+      label {
+        display: block;
+        font-weight: 650;
+        margin-bottom: 6px;
+      }
+
+      select,
+      textarea,
+      input[type="text"] {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: #fff;
+        color: var(--text);
+        padding: 9px 10px;
+        min-height: 38px;
+      }
+
+      textarea {
+        min-height: 74px;
+        resize: vertical;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        min-height: 32px;
+        white-space: normal;
+        text-align: left;
+        line-height: 1.2;
+      }
+
+      .chip.active {
+        background: var(--surface-soft);
+        border-color: var(--primary);
+        color: var(--primary-dark);
+        font-weight: 650;
+      }
+
+      .novel-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .novel-item {
+        width: 100%;
+        justify-content: flex-start;
+        white-space: normal;
+        min-height: 42px;
+      }
+
+      .novel-item.active {
+        border-color: var(--primary);
+        background: var(--surface-soft);
+      }
+
+      .details {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .detail-box {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px;
+        min-height: 90px;
+        background: #fbfcfe;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .progress {
+        position: relative;
+        height: 16px;
+        background: var(--surface-soft);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .progress > div {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 0%;
+        transition: width 220ms ease;
+      }
+
+      .progress-writing {
+        background: #2f80ed;
+        z-index: 1;
+      }
+
+      .progress-resting {
+        background: #f2b84b;
+        z-index: 2;
+      }
+
+      .progress-completed {
+        background: var(--success);
+        z-index: 3;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        display: inline-block;
+      }
+
+      .dot-writing {
+        background: #2f80ed;
+      }
+
+      .dot-resting {
+        background: #f2b84b;
+      }
+
+      .dot-completed {
+        background: var(--success);
+      }
+
+      .log {
+        min-height: 90px;
+        max-height: 170px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #111827;
+        color: #d1d5db;
+        padding: 10px;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      .notice {
+        border-left: 4px solid var(--primary);
+        background: #eef6ff;
+        padding: 10px 12px;
+        border-radius: 6px;
+      }
+
+      .notice.error {
+        border-color: var(--danger);
+        background: #fff1f0;
+      }
+
+      .notice.success {
+        border-color: var(--success);
+        background: #eefbf3;
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          grid-template-columns: 1fr;
+        }
+
+        aside {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .grid,
+        .details {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside>
+        <div class="stack">
+          <div>
+            <h1>Light Novel Studio</h1>
+            <div class="muted">Geracao por trabalhadores Gemini</div>
+          </div>
+
+          <a
+            class="link-button primary"
+            href="/tampermonkey/gemini"
+            target="_blank"
+          >
+            Tampermonkey Gemini
+          </a>
+
+          <button type="button" id="refreshButton">Atualizar</button>
+
+          <div>
+            <h2>Obras</h2>
+            <button type="button" class="novel-item active" id="newNovelButton">
+              Nova light novel
+            </button>
+            <div class="novel-list" id="novelList"></div>
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="topbar">
+          <div>
+            <h1 id="screenTitle">Nova light novel</h1>
+            <div class="muted" id="screenSubtitle">
+              Selecione generos, elementos e notas.
+            </div>
+          </div>
+          <div class="row">
+            <button type="button" id="debugButton">Debug</button>
+          </div>
+        </div>
+
+        <div id="message"></div>
+
+        <section class="section" id="createSection">
+          <h2>Criar nova</h2>
+          <div class="stack">
+            <div>
+              <h3>Generos obrigatorios</h3>
+              <div class="chips" id="genreChips"></div>
+            </div>
+            <div>
+              <h3>Elementos obrigatorios</h3>
+              <div class="chips" id="elementChips"></div>
+            </div>
+            <div>
+              <label for="noteInput">Notas adicionais</label>
+              <textarea
+                id="noteInput"
+                placeholder="Uma nota por linha. Opcional."
+              ></textarea>
+            </div>
+            <div class="worker-field">
+              <label for="createWorkerSelect">Trabalhador</label>
+              <select id="createWorkerSelect"></select>
+            </div>
+            <button type="button" class="primary" id="createButton">
+              Criar light novel
+            </button>
+          </div>
+        </section>
+
+        <section class="section" id="existingSection" hidden>
+          <h2>Continuar obra</h2>
+          <div class="details">
+            <div class="detail-box">
+              <h3>Generos</h3>
+              <ul id="detailGenres"></ul>
+            </div>
+            <div class="detail-box">
+              <h3>Elementos</h3>
+              <ul id="detailElements"></ul>
+            </div>
+            <div class="detail-box">
+              <h3>Notas</h3>
+              <ul id="detailNotes"></ul>
+            </div>
+            <div class="detail-box">
+              <h3>Capitulos</h3>
+              <ul id="detailChapters"></ul>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <div class="worker-field">
+              <label for="existingWorkerSelect">Trabalhador</label>
+              <select id="existingWorkerSelect"></select>
+            </div>
+            <button type="button" class="primary chapter-count" data-count="1">
+              +1
+            </button>
+            <button type="button" class="primary chapter-count" data-count="3">
+              +3
+            </button>
+            <button type="button" class="primary chapter-count" data-count="5">
+              +5
+            </button>
+            <button type="button" class="primary chapter-count" data-count="10">
+              +10
+            </button>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Progresso</h2>
+          <div class="row" style="justify-content: space-between">
+            <span id="progressText">0 de 0 capitulos</span>
+            <span class="muted" id="progressRemaining"
+              >Nenhum processo ativo</span
+            >
+          </div>
+          <div class="progress" aria-label="Progresso dos capitulos">
+            <div class="progress-writing" id="progressWriting"></div>
+            <div class="progress-resting" id="progressResting"></div>
+            <div class="progress-completed" id="progressCompleted"></div>
+          </div>
+          <div class="legend">
+            <span><i class="dot dot-writing"></i>escrevendo</span>
+            <span><i class="dot dot-resting"></i>descansando</span>
+            <span><i class="dot dot-completed"></i>concluido</span>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Log</h2>
+          <div class="log" id="log"></div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const API_BASE = "";
+      const POLL_MS = 3000;
+      const RESULT_TIMEOUT_MS = 15 * 60 * 1000;
+
+      const genres = [
+        "Isekai",
+        "Slice of Life",
+        "Ficcao Cientifica",
+        "Aventura",
+        "Fantasia",
+        "Romance",
+        "Misterio",
+        "Acao",
+        "Comedia",
+        "Drama",
+        "Horror",
+        "Cyberpunk",
+        "Steampunk",
+        "Post-Apocaliptico",
+        "Supernatural",
+        "Psicologico",
+        "Thriller",
+        "Seinen",
+        "Shonen",
+        "Shojo",
+        "Historico",
+        "Militar",
+        "Esportes",
+        "Musical",
+        "Policial",
+        "Espionagem",
+        "Western",
+        "Noir",
+        "Magical Girl",
+        "Isekai Reverso",
+      ];
+
+      const elements = [
+        "Sistema de poderes/magia com progressao gradual",
+        "Tecnologia high-tech e/ou industrializacao",
+        "Gestao de negocios, economia, guildas",
+        "Personagens cativantes com desenvolvimento profundo",
+        "Worldbuilding rico e detalhado",
+        "Sistemas de evolucao de poderes (niveis, classes)",
+        "Crafting e criacao de itens",
+        "Politica e intrigas de corte",
+        "Dungeon crawling e exploracao",
+        "Viagem entre mundos/dimensoes",
+        "Construcao de imperio/civilizacao",
+        "Sistema de classes e jobs",
+        "Mechas e robos",
+        "Criaturas misticas e monstros",
+        "Artes marciais e combate corpo a corpo",
+        "Alquimia e pocoes",
+        "Navegacao e exploracao maritima",
+        "Academia/escola de magia ou combate",
+        "Religiao e mitologia",
+        "Necromancia e magia proibida",
+        "Invocacao de criaturas/espiritos",
+        "Viagem no tempo",
+        "Realidade virtual/jogos",
+        "Apocalipse zumbi/sobrevivencia",
+        "Reencarnacao e Transmigracao",
+        "Protagonista Overpowered (OP)",
+        "Vinganca e retribuicao",
+        "Sistema de Gacha ou Fator Sorte",
+        "Harem ou Triangulo amoroso",
+        "Pet ou Companheiro espiritual",
+        "Deuses e Entidades cosmicas",
+        "Artefatos lendarios e ancestrais",
+        "Cultivacao e formacao de nucleo",
+        "Guilda de Aventureiros",
+        "Batalhas e exploracao espacial",
+        "Investigacao sobrenatural",
+        "Jogos mortais (Death Game)",
+        "Contratos demoniacos",
+        "Identidade secreta",
+        "Casamento por conveniencia",
+        "Salto temporal (Time skip)",
+        "Mutacoes e aprimoramento genetico",
+        "Mestre rigoroso e treinamento",
+        "Guerra de faccoes e seitas",
+        "Ruinas e civilizacoes perdidas",
+        "Maldicoes e doencas magicas",
+        "Magia elemental avancada",
+        "Armas vivas e sencientes",
+        "Troca de corpos",
+        "Culinaria magica e gastronomia",
+      ];
+
+      const state = {
+        obras: [],
+        workers: [],
+        selectedObraId: "",
+        selectedGenres: new Set(),
+        selectedElements: new Set(),
+        running: false,
+        progressTotal: 0,
+        progressDone: 0,
+        progressPhase: "idle",
+        activeWorkerId: "",
+        workerStatus: "",
+      };
+
+      const el = {
+        createWorkerSelect: document.getElementById("createWorkerSelect"),
+        existingWorkerSelect: document.getElementById("existingWorkerSelect"),
+        refreshButton: document.getElementById("refreshButton"),
+        newNovelButton: document.getElementById("newNovelButton"),
+        novelList: document.getElementById("novelList"),
+        screenTitle: document.getElementById("screenTitle"),
+        screenSubtitle: document.getElementById("screenSubtitle"),
+        createSection: document.getElementById("createSection"),
+        existingSection: document.getElementById("existingSection"),
+        genreChips: document.getElementById("genreChips"),
+        elementChips: document.getElementById("elementChips"),
+        noteInput: document.getElementById("noteInput"),
+        createButton: document.getElementById("createButton"),
+        detailGenres: document.getElementById("detailGenres"),
+        detailElements: document.getElementById("detailElements"),
+        detailNotes: document.getElementById("detailNotes"),
+        detailChapters: document.getElementById("detailChapters"),
+        progressText: document.getElementById("progressText"),
+        progressRemaining: document.getElementById("progressRemaining"),
+        progressWriting: document.getElementById("progressWriting"),
+        progressResting: document.getElementById("progressResting"),
+        progressCompleted: document.getElementById("progressCompleted"),
+        message: document.getElementById("message"),
+        log: document.getElementById("log"),
+        debugButton: document.getElementById("debugButton"),
+      };
+
+      function api(path, options = {}) {
+        return fetch(`${API_BASE}${path}`, {
+          headers: { "Content-Type": "application/json" },
+          ...options,
+        }).then(async (response) => {
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || payload.ok === false) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+          }
+          return payload;
+        });
+      }
+
+      function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+      }
+
+      function log(message) {
+        const time = new Date().toLocaleTimeString();
+        el.log.textContent = `[${time}] ${message}\n${el.log.textContent}`;
+      }
+
+      function showMessage(text, type = "") {
+        el.message.innerHTML = text
+          ? `<div class="notice ${type}">${escapeHtml(text)}</div>`
+          : "";
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;",
+          }[char];
+        });
+      }
+
+      function selectedWorkerId() {
+        const selector = state.selectedObraId
+          ? el.existingWorkerSelect
+          : el.createWorkerSelect;
+        return selector.value.trim();
+      }
+
+      function selectedNotes() {
+        return el.noteInput.value
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function setBusy(isBusy) {
+        state.running = isBusy;
+        document
+          .querySelectorAll("button, select, textarea")
+          .forEach((node) => {
+            if (node.id === "refreshButton") return;
+            node.disabled = isBusy;
+          });
+      }
+
+      function renderWorkers() {
+        const current =
+          el.createWorkerSelect.value ||
+          el.existingWorkerSelect.value ||
+          state.activeWorkerId;
+
+        if (!state.workers.length) {
+          const empty = `<option value="">Nenhum trabalhador ativo</option>`;
+          el.createWorkerSelect.innerHTML = empty;
+          el.existingWorkerSelect.innerHTML = empty;
+          return;
+        }
+
+        const options = state.workers
+          .map((worker) => {
+            const label = `${worker.id} - ${worker.status || "sem status"}`;
+            return `<option value="${escapeHtml(worker.id)}">${escapeHtml(label)}</option>`;
+          })
+          .join("");
+
+        el.createWorkerSelect.innerHTML = options;
+        el.existingWorkerSelect.innerHTML = options;
+
+        if (current && state.workers.some((worker) => worker.id === current)) {
+          el.createWorkerSelect.value = current;
+          el.existingWorkerSelect.value = current;
+        }
+      }
+
+      function renderNovelList() {
+        el.novelList.innerHTML = state.obras
+          .map((obra) => {
+            const title =
+              obra.input && obra.input.title ? obra.input.title : obra.id;
+            const active = state.selectedObraId === obra.id ? " active" : "";
+            return `<button type="button" class="novel-item${active}" data-obra="${escapeHtml(obra.id)}">${escapeHtml(title)}</button>`;
+          })
+          .join("");
+      }
+
+      function renderChips(container, values, selectedSet) {
+        container.innerHTML = values
+          .map((value) => {
+            const active = selectedSet.has(value) ? " active" : "";
+            return `<button type="button" class="chip${active}" data-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`;
+          })
+          .join("");
+      }
+
+      function renderDetails() {
+        const obra = state.obras.find(
+          (item) => item.id === state.selectedObraId,
+        );
+        if (!obra) return;
+
+        const input = obra.input || {};
+        el.screenTitle.textContent = input.title || obra.id;
+        el.screenSubtitle.textContent = `${(input.chapters || []).length} capitulos cadastrados`;
+        renderList(el.detailGenres, input.genres);
+        renderList(el.detailElements, input.elements);
+        renderList(el.detailNotes, input.additional_notes);
+        renderList(
+          el.detailChapters,
+          (input.chapters || []).map((chapter, index) => {
+            return chapter.title || `Capitulo ${index + 1}`;
+          }),
+        );
+      }
+
+      function renderList(target, values) {
+        const list = Array.isArray(values) ? values.filter(Boolean) : [];
+        target.innerHTML = list.length
+          ? list.map((value) => `<li>${escapeHtml(value)}</li>`).join("")
+          : `<li class="muted">Vazio</li>`;
+      }
+
+      function renderProgress() {
+        const total = state.progressTotal;
+        const done = state.progressDone;
+        const completedPct = total ? Math.round((done / total) * 100) : 0;
+        const activePct = total
+          ? Math.round((Math.min(done + 1, total) / total) * 100)
+          : 0;
+        const writingPct = state.progressPhase === "writing" ? activePct : 0;
+        const restingPct = state.progressPhase === "resting" ? activePct : 0;
+
+        el.progressText.textContent = `${done} de ${total} capitulos`;
+        if (!total) {
+          el.progressRemaining.textContent = "Nenhum processo ativo";
+        } else if (state.progressPhase === "writing") {
+          el.progressRemaining.textContent = `escrevendo - ${Math.max(total - done, 0)} faltando`;
+        } else if (state.progressPhase === "resting") {
+          el.progressRemaining.textContent = `descansando - ${Math.max(total - done, 0)} faltando`;
+        } else if (done >= total) {
+          el.progressRemaining.textContent = "concluido";
+        } else {
+          el.progressRemaining.textContent = `${Math.max(total - done, 0)} faltando`;
+        }
+
+        el.progressWriting.style.width = `${writingPct}%`;
+        el.progressResting.style.width = `${restingPct}%`;
+        el.progressCompleted.style.width = `${completedPct}%`;
+      }
+
+      function setProgressPhase(phase, workerStatus = "") {
+        state.progressPhase = phase;
+        state.workerStatus = workerStatus;
+        renderProgress();
+      }
+
+      async function updateWorkerProgress(workerId) {
+        if (!workerId || !state.running) return;
+
+        const payload = await api("/trabalhadores");
+        state.workers = payload.trabalhadores || [];
+        renderWorkers();
+
+        const worker = state.workers.find((item) => item.id === workerId);
+        const status = worker ? worker.status : "";
+        if (status === "trabalhando") {
+          setProgressPhase("writing", status);
+        } else if (
+          status === "cooldown" ||
+          status === "aguardando_consumo" ||
+          status === "livre"
+        ) {
+          setProgressPhase("resting", status);
+        }
+      }
+
+      function selectNewNovel() {
+        state.selectedObraId = "";
+        el.newNovelButton.classList.add("active");
+        el.createSection.hidden = false;
+        el.existingSection.hidden = true;
+        el.screenTitle.textContent = "Nova light novel";
+        el.screenSubtitle.textContent = "Selecione generos, elementos e notas.";
+        renderNovelList();
+      }
+
+      function selectObra(id) {
+        state.selectedObraId = id;
+        el.newNovelButton.classList.remove("active");
+        el.createSection.hidden = true;
+        el.existingSection.hidden = false;
+        renderNovelList();
+        renderDetails();
+      }
+
+      function validateWorker() {
+        const workerId = selectedWorkerId();
+        if (!workerId) {
+          throw new Error("Escolha um trabalhador ativo antes de enviar.");
+        }
+        return workerId;
+      }
+
+      function parseGeminiJson(text) {
+        const cleaned = String(text)
+          .trim()
+          .replace(/^```(?:json)?/i, "")
+          .replace(/```$/i, "")
+          .trim();
+
+        try {
+          return JSON.parse(cleaned);
+        } catch (error) {
+          const first = cleaned.indexOf("{");
+          const last = cleaned.lastIndexOf("}");
+          if (first >= 0 && last > first) {
+            return JSON.parse(cleaned.slice(first, last + 1));
+          }
+          throw error;
+        }
+      }
+
+      function isCompleteChapter(chapter) {
+        return Boolean(
+          chapter &&
+          typeof chapter === "object" &&
+          String(chapter.number || "").trim() &&
+          String(chapter.title || "").trim() &&
+          String(chapter.content || "").trim(),
+        );
+      }
+
+      function chapterIdentity(chapter) {
+        return [
+          String(chapter.number || "").trim(),
+          String(chapter.title || "").trim(),
+          String(chapter.content || "").trim(),
+        ].join("\u0000");
+      }
+
+      function sanitizeChapters(chapters) {
+        const seen = new Set();
+        return (Array.isArray(chapters) ? chapters : []).filter((chapter) => {
+          if (!isCompleteChapter(chapter)) return false;
+          const key = chapterIdentity(chapter);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function moveChapterToChapters(payload) {
+        const data = clone(payload);
+        data.input = data.input || {};
+        const chapter = data.input.chapter;
+        data.input.chapters = sanitizeChapters(data.input.chapters);
+
+        if (isCompleteChapter(chapter)) {
+          const incomingKey = chapterIdentity(chapter);
+          data.input.chapters = data.input.chapters.filter((item) => {
+            return chapterIdentity(item) !== incomingKey;
+          });
+          data.input.chapters.push(chapter);
+        }
+
+        data.input.chapter = { number: "", title: "", content: "" };
+        return data;
+      }
+
+      async function enqueuePrompt(prompt, workerId) {
+        const payload = await api("/prompt", {
+          method: "POST",
+          body: JSON.stringify({ prompt, workerId }),
+        });
+        return payload.tarefa;
+      }
+
+      async function waitForResult(taskId, workerId) {
+        const deadline = Date.now() + RESULT_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+          await updateWorkerProgress(workerId);
+          const payload = await api("/resultados?pendentes=1");
+          const result = payload.resultados.find(
+            (item) => item.taskId === taskId,
+          );
+          if (result) {
+            await api("/resultado/consumir", {
+              method: "POST",
+              body: JSON.stringify({ resultId: result.id }),
+            });
+            return result;
+          }
+          await new Promise((resolve) => setTimeout(resolve, POLL_MS));
+        }
+        throw new Error("Tempo limite aguardando resposta do trabalhador.");
+      }
+
+      async function runPrompt(payload, workerId) {
+        const task = await enqueuePrompt(
+          JSON.stringify(payload, null, 2),
+          workerId,
+        );
+        setProgressPhase("resting");
+        log(`Tarefa ${task.id} enviada para ${workerId}.`);
+        const result = await waitForResult(task.id, workerId);
+        log(`Resultado ${result.id} recebido e consumido.`);
+        return parseGeminiJson(result.resposta);
+      }
+
+      async function createNovel() {
+        try {
+          const workerId = validateWorker();
+          const selectedGenres = Array.from(state.selectedGenres);
+          const selectedElements = Array.from(state.selectedElements);
+
+          if (!selectedGenres.length) {
+            throw new Error("Escolha pelo menos 1 genero.");
+          }
+          if (!selectedElements.length) {
+            throw new Error("Escolha pelo menos 1 elemento.");
+          }
+
+          setBusy(true);
+          state.activeWorkerId = workerId;
+          showMessage("");
+          state.progressTotal = 1;
+          state.progressDone = 0;
+          setProgressPhase("resting");
+
+          const prompt = await api("/obra");
+          prompt.input = prompt.input || {};
+          prompt.input.last_chapter_number = 0;
+          prompt.input.title = "";
+          prompt.input.genres = selectedGenres;
+          prompt.input.elements = selectedElements;
+          prompt.input.additional_notes = selectedNotes();
+          prompt.input.chapters = [];
+
+          const generated = await runPrompt(prompt, workerId);
+          const savedPayload = moveChapterToChapters(generated);
+          const saved = await api("/obra", {
+            method: "POST",
+            body: JSON.stringify({ content: savedPayload }),
+          });
+
+          state.progressDone = 1;
+          setProgressPhase("completed");
+          log(`Obra salva como ${saved.id}.`);
+          showMessage(`Light novel criada: ${saved.id}`, "success");
+          await refresh();
+          selectObra(saved.id);
+        } catch (error) {
+          showMessage(error.message, "error");
+          log(`Erro: ${error.message}`);
+        } finally {
+          setBusy(false);
+          state.activeWorkerId = "";
+        }
+      }
+
+      async function generateChapters(count) {
+        if (!state.selectedObraId) return;
+
+        try {
+          const workerId = validateWorker();
+          setBusy(true);
+          state.activeWorkerId = workerId;
+          showMessage("");
+          state.progressTotal = count;
+          state.progressDone = 0;
+          setProgressPhase("resting");
+
+          for (let index = 0; index < count; index += 1) {
+            const prompt = await api(
+              `/obra/${encodeURIComponent(state.selectedObraId)}`,
+            );
+            log(`Gerando capitulo ${index + 1} de ${count}.`);
+            const generated = await runPrompt(prompt, workerId);
+            const savedPayload = moveChapterToChapters(generated);
+
+            await api("/obra", {
+              method: "POST",
+              body: JSON.stringify({
+                id: state.selectedObraId,
+                content: savedPayload,
+              }),
+            });
+
+            state.progressDone = index + 1;
+            setProgressPhase(
+              state.progressDone >= state.progressTotal
+                ? "completed"
+                : "resting",
+            );
+            await refresh(false);
+          }
+
+          showMessage("Capitulos gerados e obra atualizada.", "success");
+          log("Processo concluido.");
+        } catch (error) {
+          showMessage(error.message, "error");
+          log(`Erro: ${error.message}`);
+        } finally {
+          setBusy(false);
+          state.activeWorkerId = "";
+        }
+      }
+
+      async function refresh(logRefresh = true) {
+        const [obrasPayload, workersPayload] = await Promise.all([
+          api("/obras"),
+          api("/trabalhadores"),
+        ]);
+
+        state.obras = obrasPayload.obras || [];
+        state.workers = workersPayload.trabalhadores || [];
+        renderWorkers();
+        renderNovelList();
+        if (state.selectedObraId) renderDetails();
+        if (logRefresh) log("Estado atualizado.");
+      }
+
+      function bindEvents() {
+        el.refreshButton.addEventListener("click", () =>
+          refresh().catch((error) => showMessage(error.message, "error")),
+        );
+        el.newNovelButton.addEventListener("click", selectNewNovel);
+        el.createButton.addEventListener("click", createNovel);
+        el.debugButton.addEventListener("click", () =>
+          window.open("/debug", "_blank"),
+        );
+        el.createWorkerSelect.addEventListener("change", () => {
+          el.existingWorkerSelect.value = el.createWorkerSelect.value;
+        });
+        el.existingWorkerSelect.addEventListener("change", () => {
+          el.createWorkerSelect.value = el.existingWorkerSelect.value;
+        });
+
+        el.novelList.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-obra]");
+          if (button) selectObra(button.dataset.obra);
+        });
+
+        el.genreChips.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-value]");
+          if (!button) return;
+          const value = button.dataset.value;
+          state.selectedGenres.has(value)
+            ? state.selectedGenres.delete(value)
+            : state.selectedGenres.add(value);
+          renderChips(el.genreChips, genres, state.selectedGenres);
+        });
+
+        el.elementChips.addEventListener("click", (event) => {
+          const button = event.target.closest("[data-value]");
+          if (!button) return;
+          const value = button.dataset.value;
+          state.selectedElements.has(value)
+            ? state.selectedElements.delete(value)
+            : state.selectedElements.add(value);
+          renderChips(el.elementChips, elements, state.selectedElements);
+        });
+
+        document.querySelectorAll(".chapter-count").forEach((button) => {
+          button.addEventListener("click", () => {
+            generateChapters(Number(button.dataset.count));
+          });
+        });
+      }
+
+      renderChips(el.genreChips, genres, state.selectedGenres);
+      renderChips(el.elementChips, elements, state.selectedElements);
+      renderProgress();
+      bindEvents();
+      refresh().catch((error) => {
+        showMessage(error.message, "error");
+        log(`Erro: ${error.message}`);
+      });
+    </script>
+  </body>
+</html>
