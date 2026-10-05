@@ -1,870 +1,2066 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
-    <title>LN Reader Studio</title>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
+<title>LightNovel Manager V7</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react@18/umd/react.production.min.js"
-    ></script>
-    <script
-      crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
-    ></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/json5@2.2.3/dist/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubit@1.0.6/epubit.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 
-    <style>
-      body,
-      html {
-        margin: 0;
-        padding: 0;
-        height: 100%;
-        overflow: hidden;
-        -webkit-tap-highlight-color: transparent;
+<style>
+:root{
+  --manager-header-height:112px;
+  --bg:#111827;--panel:#1f2937;--panel2:#172033;--text:#f3f4f6;--muted:#9ca3af;
+  --border:#374151;--primary:#6366f1;--primary2:#818cf8;
+  --secondary:#374151;--secondary2:#4b5563;
+  --accent:#06b6d4;--accent2:#22d3ee;
+  --ok:#34d399;--okbg:#064e3b;--err:#f87171;--errbg:#450a0a
+}
+*{box-sizing:border-box}
+[x-cloak]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea{font:inherit}
+button{border:0;border-radius:8px;padding:9px 13px;background:var(--primary);color:#fff;cursor:pointer;transition:.15s ease;box-shadow:0 2px 8px #0004} button:hover{background:var(--primary2);transform:translateY(-1px)} button.secondary{background:var(--secondary);color:#f9fafb} button.secondary:hover{background:var(--secondary2)} button.accent{background:var(--accent);color:#06202a} button.accent:hover{background:var(--accent2)}
+button.danger{background:#b42318;padding:7px 10px}
+button.success{background:var(--ok)}
+.app{max-width:1250px;margin:auto;padding:16px}
+header{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:20px;margin:0}
+.toolbar{display:flex;gap:7px;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:15px;margin-bottom:14px}
+.editable-panel{background:#1b2540;border-color:#6366f1;box-shadow:inset 0 0 0 1px #6366f133,0 4px 18px #0002}
+.editable-panel details summary{color:#c7d2fe}
+.editable-panel input[type=text]{border-color:#5966b8;background:#111a31}
+.json-editing-panel{background:#1b2540;border-color:#6366f1;box-shadow:inset 0 0 0 1px #6366f133,0 4px 18px #0002}
+.archived-count{font-size:12px;color:var(--muted);margin-top:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-weight:650;margin-bottom:6px}
+input[type=text],textarea{
+  width:100%;border:1px solid var(--border);border-radius:8px;
+  padding:9px;background:#111827;color:inherit;outline:none
+} input[type=text]:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px #06b6d433}
+textarea{min-height:230px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+.list-row{display:flex;gap:7px;margin-bottom:7px}
+.list-row input{flex:1}
+details summary{cursor:pointer;font-weight:700}
+pre{
+  margin:10px 0 0;padding:12px;background:#0b1120;color:#dbeafe;
+  border-radius:8px;overflow:auto;max-height:430px;white-space:pre-wrap;word-break:break-word
+}
+.status{position:fixed;top:calc(var(--manager-header-height) + 10px);right:16px;z-index:1250;max-width:min(520px,calc(100vw - 32px));padding:10px 14px;border-radius:8px;box-shadow:0 8px 28px #0006;border:1px solid var(--border);pointer-events:none}
+.status.ok{background:var(--okbg);color:var(--ok)}
+.status.error{background:var(--errbg);color:var(--err)}
+.muted{color:var(--muted);font-size:12px}
+.modal-bg{position:fixed;inset:0;background:#020617cc;display:grid;place-items:center;padding:16px;z-index:1200}
+.modal{background:var(--panel);width:min(850px,100%);max-height:92vh;overflow:auto;border-radius:14px;padding:18px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-head h2{margin:0;font-size:18px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.chapter-count{font-size:12px;color:var(--muted)}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.app{padding:10px}.top-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 16px #0003}.top-toolbar button{margin:0}.switch{position:relative;display:inline-block;width:44px;height:24px}.switch input{opacity:0;width:0;height:0}.switch-slider{position:absolute;inset:0;background:var(--secondary);border-radius:999px;cursor:pointer;transition:.2s}.switch-slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:white;border-radius:50%;transition:.2s}.switch input:checked+.switch-slider{background:var(--accent)}.switch input:checked+.switch-slider:before{transform:translateX(20px)}.json-editor{width:100%;min-height:420px;resize:vertical;font-family:Consolas,Monaco,monospace;font-size:13px;line-height:1.45;border:1px solid var(--accent);border-radius:8px;padding:12px;background:#0b1120;color:#dbeafe;outline:none}.toolbar button{flex:1}}
+
+header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:100;
+  padding:10px 14px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 4px 18px #0005;
+  backdrop-filter:blur(10px)
+}
+.app{padding-top:calc(var(--manager-header-height) + 14px)}
+@media(max-width:600px){
+  .status{top:calc(var(--manager-header-height) + 10px);right:10px;max-width:calc(100vw - 20px)}
+  header h1{font-size:1.1rem;margin:0 0 7px}
+  .app{padding-top:calc(var(--manager-header-height) + 10px)}
+  .top-toolbar{gap:6px;padding:7px}
+  .top-toolbar button{padding:8px 9px;font-size:12px}
+}
+
+ .tabs{margin-top:0}.section-selector{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:12px 15px;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:12px;box-shadow:none;text-align:left}.section-selector:hover{background:var(--secondary);transform:none;border-color:var(--border)}.section-selector-copy{display:inline-flex;align-items:center;gap:9px;font-weight:700}.section-selector-copy .bi{font-size:17px}.section-selector-chevron{font-size:14px;color:var(--muted)}.section-modal{width:min(620px,100%)}.section-choice-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}.section-choice{display:flex;align-items:center;gap:10px;width:100%;padding:12px;text-align:left;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:10px}.section-choice:hover{background:var(--secondary);transform:none}.section-choice.active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,var(--panel2))}.section-choice .bi:first-child{font-size:17px;width:20px;text-align:center}.section-choice-check{margin-left:auto;color:var(--accent)}.tab-pane{min-height:120px}@media(max-width:600px){.section-choice-list{grid-template-columns:1fr}.section-selector{padding:13px 14px}}
+.save-modal{width:min(720px,100%)}
+.save-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.save-option{display:flex;align-items:flex-start;gap:12px;text-align:left;padding:15px;background:#172033;border:1px solid var(--border);border-radius:12px;color:var(--text);box-shadow:none}
+.save-option:hover{background:#24314a;transform:none;border-color:#5966b8}
+.save-option .save-icon{font-size:25px;line-height:1;flex:0 0 auto;margin-top:2px}
+.save-option .save-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.save-option .save-title{font-weight:750;font-size:15px}
+.save-option .save-desc{font-size:12px;color:var(--muted);line-height:1.35}
+.save-modal-note{margin-top:12px;padding:10px 12px;border-radius:8px;background:#0b1120;color:var(--muted);font-size:12px;line-height:1.45}
+.memory-modal{width:min(720px,100%)}
+.memory-list{display:grid;gap:10px}
+.memory-item{display:flex;align-items:center;gap:12px;padding:12px;background:#172033;border:1px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;color:var(--text)}
+.memory-item:hover{background:#24314a;border-color:#5966b8;transform:none}
+.memory-cover{width:48px;height:64px;flex:0 0 48px;border-radius:6px;object-fit:cover;background:#0b1120;border:1px solid var(--border)}
+.memory-cover-empty{display:grid;place-items:center;color:var(--muted);font-size:20px}
+.memory-copy{min-width:0;display:flex;flex-direction:column;gap:3px}
+.memory-title{font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.memory-meta{font-size:12px;color:var(--muted)}
+.memory-empty{padding:20px;text-align:center;color:var(--muted);border:1px dashed var(--border);border-radius:10px}
+.reader-overlay{position:fixed;inset:0;z-index:200;background:#020617;display:flex;flex-direction:column}
+.reader-overlay-head{height:48px;flex:0 0 48px;display:flex;align-items:center;justify-content:flex-end;padding:6px 10px;background:#111827;border-bottom:1px solid #374151}
+.reader-overlay-close{font-size:20px;padding:6px 10px}
+.reader-overlay iframe{width:100%;height:100%;border:0;background:#111827}
+
+
+/* Menu mobile inspirado no estilo do componente solicitado, adaptado ao tema do Manager. */
+.mobile-menu-toggle{display:none;background:transparent!important;padding:0!important;border:0!important;box-shadow:none!important;color:var(--text)!important;transform:none!important}
+.mobile-menu-toggle:hover{background:transparent!important;transform:none!important;box-shadow:none!important}
+.mobile-menu-toggle .menu-box{width:46px;height:46px;border-radius:12px;border:1px solid var(--border);background:var(--panel2);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px #0004;cursor:pointer}
+.mobile-menu-toggle .menu-icon{position:relative;width:24px;height:20px;display:block}
+.mobile-menu-toggle .menu-icon span{position:absolute;left:0;width:24px;height:2.5px;border-radius:99px;background:var(--text);transition:.22s ease}
+.mobile-menu-toggle .menu-icon span:nth-child(1){top:1px}
+.mobile-menu-toggle .menu-icon span:nth-child(2){top:9px}
+.mobile-menu-toggle .menu-icon span:nth-child(3){top:17px}
+.mobile-menu-toggle.open .menu-icon span:nth-child(1){top:9px;transform:rotate(45deg)}
+.mobile-menu-toggle.open .menu-icon span:nth-child(2){opacity:0;transform:scaleX(.4)}
+.mobile-menu-toggle.open .menu-icon span:nth-child(3){top:9px;transform:rotate(-45deg)}
+@media(max-width:600px){
+  header{padding:8px 10px;flex-wrap:nowrap}
+  header h1{flex:1;min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mobile-menu-toggle{display:block;flex:0 0 auto}
+  .top-toolbar{display:none;position:absolute;top:calc(100% + 8px);right:10px;left:10px;grid-template-columns:1fr 1fr;gap:8px;padding:10px;background:var(--panel2);border:1px solid var(--border);border-radius:16px;box-shadow:0 14px 40px #0008;z-index:120;}
+  .top-toolbar.mobile-open{display:grid}
+  .top-toolbar button{width:100%;min-height:44px;margin:0;font-size:13px}
+  .top-toolbar .menu-full{grid-column:1 / -1}
+}
+
+.top-toolbar .icon-text{display:inline-flex;align-items:center;gap:7px}
+.top-toolbar .icon-text i{font-size:15px}
+@media(max-width:760px){.save-options{grid-template-columns:1fr}.save-option{padding:13px}}
+</style>
+</head>
+
+<body>
+<div class="app" x-data="lightNovelManager()" x-init="init()">
+
+<header @click.outside="menuMobileAberto=false">
+  <h1>LightNovel Manager</h1>
+  <button class="mobile-menu-toggle" :class="{open:menuMobileAberto}" @click.stop="menuMobileAberto=!menuMobileAberto" aria-label="Abrir menu" title="Menu">
+    <span class="menu-box"><span class="menu-icon"><span></span><span></span><span></span></span></span>
+  </button>
+  <div class="top-toolbar" :class="{'mobile-open':menuMobileAberto}" @click="menuMobileAberto=false">
+    <button @click="novoPrompt()"><span class="icon-text"><i class="bi bi-file-earmark-plus"></i>Novo</span></button>
+    <button class="secondary" @click="copiarJson()"><span class="icon-text"><i class="bi bi-clipboard"></i>Copiar JSON</span></button>
+    <button class="accent" @click="colarResposta()"><span class="icon-text"><i class="bi bi-clipboard2-plus"></i>Colar resposta</span></button>
+    <button class="secondary" @click="aplicarRespostaPrompt()"><span class="icon-text"><i class="bi bi-check2-square"></i>Aplicar resposta</span></button>
+    <button class="success" @click="abrirSalvar()"><span class="icon-text"><i class="bi bi-save"></i>Salvar</span></button>
+    <button class="secondary" @click="abrirCarregar()"><span class="icon-text"><i class="bi bi-folder2-open"></i>Carregar</span></button>
+    <button class="accent menu-full" @click="abrirLeitorInterno()"><span class="icon-text"><i class="bi bi-book"></i>Ler</span></button>
+  </div>
+</header>
+
+<div x-show="mensagem" x-cloak class="status" :class="tipoMensagem" x-text="mensagem"></div>
+
+<div x-show="modalSalvar" x-cloak class="modal-bg" @keydown.escape.window="fecharSalvar()">
+  <div class="modal save-modal" @click.stop>
+    <div class="modal-head">
+      <h2>Salvar livro</h2>
+      <button class="secondary" @click="fecharSalvar()" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    </div>
+
+    <div class="save-options">
+      <button class="save-option" @click="salvarModelo()">
+        <span class="save-icon"><i class="bi bi-filetype-json"></i></span>
+        <span class="save-copy"><span class="save-title">Modelo</span><span class="save-desc">Salvar o JSON atual do projeto.</span></span>
+      </button>
+
+      <button class="save-option" @click="salvarMemoria()">
+        <span class="save-icon"><i class="bi bi-database-check"></i></span>
+        <span class="save-copy"><span class="save-title">Memória</span><span class="save-desc">Salvar a obra no armazenamento local deste dispositivo.</span></span>
+      </button>
+
+      <button class="save-option" @click="salvarLeitor()">
+        <span class="save-icon"><i class="bi bi-filetype-html"></i></span>
+        <span class="save-copy"><span class="save-title">HTML</span><span class="save-desc">Salvar o leitor completo da obra.</span></span>
+      </button>
+
+      <button class="save-option" @click="salvarEpub()">
+        <span class="save-icon"><i class="bi bi-book"></i></span>
+        <span class="save-copy"><span class="save-title">EPUB 3</span><span class="save-desc">Livro EPUB 3 compatível com leitores.</span></span>
+      </button>
+
+      <button class="save-option" @click="salvarKindle()">
+        <span class="save-icon"><i class="bi bi-kindle"></i></span>
+        <span class="save-copy"><span class="save-title">Kindle</span><span class="save-desc">KFX; AZW3 como alternativa se necessário.</span></span>
+      </button>
+    </div>
+
+    <div class="save-modal-note">
+      O Kindle usa KFX/AZW3 para livros copiados diretamente por USB. O Boko é usado na conversão desses formatos quando o navegador consegue carregar o WASM.
+    </div>
+  </div>
+</div>
+
+<div x-show="modalCarregar" x-cloak class="modal-bg" @keydown.escape.window="fecharCarregar()">
+  <div class="modal memory-modal" @click.stop>
+    <div class="modal-head">
+      <h2>Carregar obra</h2>
+      <button class="secondary" @click="fecharCarregar()" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="save-options">
+      <button class="save-option" @click="abrirMemoria()">
+        <span class="save-icon"><i class="bi bi-database"></i></span>
+        <span class="save-copy"><span class="save-title">Memória</span><span class="save-desc">Escolher uma obra salva neste dispositivo.</span></span>
+      </button>
+      <button class="save-option" @click="abrirArquivoCarregar()">
+        <span class="save-icon"><i class="bi bi-folder2-open"></i></span>
+        <span class="save-copy"><span class="save-title">Arquivo</span><span class="save-desc">Abrir um HTML de obra já existente.</span></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div x-show="modalMemoria" x-cloak class="modal-bg" @keydown.escape.window="fecharMemoria()">
+  <div class="modal memory-modal" @click.stop>
+    <div class="modal-head">
+      <h2>Obras na memória</h2>
+      <button class="secondary" @click="fecharMemoria()" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="memory-list">
+      <template x-if="memorias.length === 0">
+        <div class="memory-empty">Nenhuma obra foi salva na memória deste dispositivo.</div>
+      </template>
+      <template x-for="obra in memorias" :key="obra._managerV7.id">
+        <button class="memory-item" @click="carregarMemoria(obra._managerV7.id)">
+          <template x-if="obra._managerV7.capa && obra._managerV7.capa.dataUrl">
+            <img class="memory-cover" :src="obra._managerV7.capa.dataUrl" alt="Capa da obra">
+          </template>
+          <template x-if="!(obra._managerV7.capa && obra._managerV7.capa.dataUrl)">
+            <div class="memory-cover memory-cover-empty"><i class="bi bi-book"></i></div>
+          </template>
+          <span class="memory-copy">
+            <span class="memory-title" x-text="obra.titulo || 'Obra sem título'"></span>
+            <span class="memory-meta" x-text="(Number(obra._managerV7.totalCapitulos)||0) + ' capítulo(s) · ' + formatarDataMemoria(obra._managerV7.atualizadoEm)"></span>
+          </span>
+        </button>
+      </template>
+    </div>
+  </div>
+</div>
+
+<div x-show="leitorAberto" x-cloak class="reader-overlay">
+  <iframe id="readerInternalFrame" title="Leitor da obra"></iframe>
+</div>
+
+<div x-show="modalSecoes" x-cloak class="modal-bg" @keydown.escape.window="fecharSecoes()">
+  <div class="modal section-modal" @click.stop>
+    <div class="modal-head">
+      <h2>Escolher seção</h2>
+      <button class="secondary" @click="fecharSecoes()" title="Fechar" aria-label="Fechar"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="section-choice-list">
+      <template x-for="secao in secoes" :key="secao.id">
+        <button class="section-choice" :class="{active: abaAtiva === secao.id}" @click="selecionarSecao(secao.id)">
+          <i class="bi" :class="secao.icon"></i>
+          <span x-text="secao.label"></span>
+          <i x-show="abaAtiva === secao.id" class="bi bi-check2 section-choice-check"></i>
+        </button>
+      </template>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="section-selector" type="button" @click="abrirSecoes()" :aria-label="'Escolher seção: ' + secaoAtual.label">
+    <span class="section-selector-copy">
+      <i class="bi" :class="secaoAtual.icon"></i>
+      <span x-text="secaoAtual.label"></span>
+    </span>
+    <i class="bi bi-chevron-down section-selector-chevron"></i>
+  </button>
+
+  <div x-show="abaAtiva==='obra'" x-cloak class="tab-pane">
+    <section class="panel">
+      <div class="grid">
+        <div>
+          <label>Título da obra</label>
+          <input type="text" x-model="json.titulo" placeholder="Será criado pela IA no capítulo 1 se estiver vazio">
+        </div>
+        <div>
+          <label>Capítulos</label>
+          <div class="chapter-count" style="padding-top:10px">
+            <strong x-text="json.capitulos.length"></strong> no buffer
+            · <strong x-text="capitulosArquivados.length"></strong> arquivados
+            · <strong x-text="json.capitulos.length + capitulosArquivados.length"></strong> no total
+            <span x-show="json.capitulos.length >= (Number(json.limite_capitulos) || 5)"> — consolidação pendente</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div x-show="abaAtiva==='parametros'" x-cloak class="tab-pane">
+    <section class="panel editable-panel">
+      <div class="grid">
+        <div>
+          <label>Gêneros</label>
+          <template x-for="(item,index) in json.parametros.generos" :key="'g'+index">
+            <div class="list-row">
+              <input type="text" x-model="json.parametros.generos[index]">
+              <button class="danger" @click="removerParametro('generos',index)">×</button>
+            </div>
+          </template>
+          <button class="secondary" @click="adicionarParametro('generos')">+ gênero</button>
+        </div>
+        <div>
+          <label>Elementos obrigatórios</label>
+          <template x-for="(item,index) in json.parametros.elementos_obrigatorios" :key="'e'+index">
+            <div class="list-row">
+              <input type="text" x-model="json.parametros.elementos_obrigatorios[index]">
+              <button class="danger" @click="removerParametro('elementos_obrigatorios',index)">×</button>
+            </div>
+          </template>
+          <button class="secondary" @click="adicionarParametro('elementos_obrigatorios')">+ elemento</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div x-show="abaAtiva==='estado'" x-cloak class="tab-pane"><section class="panel"><pre x-text="pretty(json.estado)"></pre></section></div>
+  <div x-show="abaAtiva==='biblia'" x-cloak class="tab-pane"><section class="panel"><pre x-text="pretty(json.biblia)"></pre></section></div>
+  <div x-show="abaAtiva==='resumo'" x-cloak class="tab-pane"><section class="panel"><pre x-text="pretty(json.resumo)"></pre></section></div>
+  <div x-show="abaAtiva==='buffer'" x-cloak class="tab-pane"><section class="panel"><pre x-text="pretty(json.capitulos)"></pre></section></div>
+
+  <div x-show="abaAtiva==='arquivados'" x-cloak class="tab-pane">
+    <section class="panel">
+      <div class="archived-count"><strong x-text="capitulosArquivados.length"></strong> capítulo(s) arquivado(s). Estes capítulos não fazem parte do JSON enviado à IA.</div>
+      <pre x-text="pretty(capitulosArquivados)"></pre>
+    </section>
+  </div>
+
+  <div x-show="abaAtiva==='capa'" x-cloak class="tab-pane">
+    <section class="panel cover-panel">
+      <div class="grid">
+        <div>
+          <label>Arquivo da capa</label>
+          <input id="coverLoader" type="file" accept="image/*" @change="carregarCapa($event)">
+          <div class="chapter-count" style="margin-top:8px">
+            <template x-if="capa.dataUrl"><span><strong x-text="capa.nome || 'capa'"></strong> · <span x-text="capa.tipo || 'imagem'"></span></span></template>
+            <template x-if="!capa.dataUrl"><span>Nenhuma capa selecionada.</span></template>
+          </div>
+        </div>
+        <div x-show="capa.dataUrl" style="display:flex;justify-content:center">
+          <img :src="capa.dataUrl" alt="Prévia da capa" style="display:block;max-width:220px;max-height:300px;width:auto;height:auto;object-fit:contain;border:1px solid var(--border);border-radius:10px;background:#111827">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button class="danger" type="button" x-show="capa.dataUrl" @click="removerCapa()">Remover capa</button>
+      </div>
+      <div class="archived-count" style="margin-top:12px">A capa é mantida separadamente do JSON enviado à IA e será incorporada ao HTML em Base64.</div>
+      <hr style="margin:20px 0;border:0;border-top:1px solid var(--border)">
+      <label>Prompt para gerar a capa</label>
+      <div class="archived-count" style="margin:6px 0 10px">
+        O conteúdo usado muda conforme o estágio da obra: antes da primeira consolidação usa o capítulo 1; depois usa a Bíblia e o Resumo sem as instruções.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="secondary" type="button" @click="gerarPromptCapa()">Gerar prompt da capa</button>
+        <button class="secondary" type="button" x-show="promptCapa" @click="copiarPromptCapa()">Copiar prompt</button>
+      </div>
+      <textarea x-model="promptCapa" rows="16" placeholder="Clique em “Gerar prompt da capa”."></textarea>
+    </section>
+  </div>
+
+  <div x-show="abaAtiva==='prompt'" x-cloak class="tab-pane">
+    <section class="panel" :class="{'json-editing-panel': editarJsonDireto}">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <label style="margin:0">JSON completo do prompt</label>
+        <label class="switch" title="Permitir edição direta">
+          <input type="checkbox" x-model="editarJsonDireto" @change="alternarEdicaoJson()">
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+      <small class="muted" x-show="!editarJsonDireto">Somente leitura.</small>
+      <small class="muted" x-show="editarJsonDireto">Edição direta ativada. O conteúdo editado será usado ao copiar, aplicar ou salvar o leitor.</small>
+      <textarea x-show="!editarJsonDireto" readonly :value="jsonString"></textarea>
+      <textarea x-show="editarJsonDireto" x-model="jsonEditado" class="json-editor" spellcheck="false"></textarea>
+    </section>
+  </div>
+
+  <div x-show="abaAtiva==='resposta'" x-cloak class="tab-pane">
+    <section class="panel">
+      <label>Resposta da IA</label>
+      <textarea x-model="resposta" placeholder='Cole aqui a resposta JSON da IA, por exemplo: {"capitulos":[{"titulo":"...","numero":1,"conteudo":"..."}]}'></textarea>
+      <div class="toolbar" style="margin-top:9px">
+        <button class="accent" @click="colarResposta()">📋 Colar resposta</button>
+        <button @click="aplicarRespostaPrompt()">Aplicar resposta</button>
+        <button class="secondary" @click="resposta=''">Limpar</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<input id="fileLoader" type="file" accept=".html,.htm,text/html" hidden @change="arquivoSelecionado($event)">
+
+<script>
+const MODELO = {
+  "titulo": "",
+
+  "diretrizes": {
+    "objetivo": "Este arquivo contém o contexto da obra e as regras permanentes para sua geração e manutenção. O modelo deve interpretar todo o arquivo antes de executar o comando recebido.",
+    "formato": "Light novel narrada estritamente em primeira pessoa pelo protagonista.",
+    "pov": {
+      "padrao": "primeira pessoa, protagonista",
+      "permitir_mudanca": false
+    },
+    "estilo": "Monólogo interno expressivo, voz característica, impressões subjetivas, parágrafos dinâmicos e ritmo fluido.",
+    "dialogos": "Usar travessão (—).",
+    "autonomia": "O modelo pode criar títulos, nomes, personagens, locais, worldbuilding, arcos, regras e reviravoltas, desde que respeite os parâmetros, a continuidade e os fatos estabelecidos.",
+    "capitulo": {
+      "palavras_min": 3000,
+      "palavras_max": 5000
+    },
+    "continuidade": "Nenhum fato estabelecido pode ser contradito sem justificativa narrativa explícita."
+  },
+
+  "parametros": {
+    "generos": [],
+    "elementos_obrigatorios": [],
+	"instrucao": "Os parâmetros definidos pelo usuário representam requisitos permanentes da obra. O modelo possui liberdade criativa para interpretar, desenvolver e integrar esses requisitos à narrativa."
+  },
+
+  "estado": {
+    "ultimo_capitulo": 0,
+    "consolidado_ate": 0
+  },
+
+  "biblia": {
+    "instrucao": "Representa o conhecimento permanente e consolidado da obra. Deve preservar as informações necessárias para compreender e continuar a história.",
+    "protagonista": {
+      "nome": "",
+      "personalidade": "",
+      "motivacoes": "",
+      "objetivos": ""
+    },
+    "premissa_e_lore": [],
+    "personagens": [],
+    "continuidade_e_fatos": []
+  },
+
+  "resumo": {
+    "instrucao": "Representa os acontecimentos anteriores comprimidos para reduzir o contexto necessário para continuar a história. Deve preservar eventos, consequências, relações, revelações, mudanças importantes e pontas em aberto.",
+    "conteudo": ""
+  },
+
+  "limite_capitulos": 5,
+
+  "capitulos": [],
+
+  "comandos": {
+    "proximo_capitulo": {
+      "comando": "próximo capítulo",
+      "objetivo": "Gerar o próximo capítulo utilizando todo o contexto disponível.",
+      "processamento": [
+        "Interpretar todo o arquivo antes de executar o comando.",
+        "Respeitar todas as diretrizes e parâmetros.",
+        "Considerar a Bíblia, o Resumo e os capítulos completos disponíveis.",
+        "Identificar todos os gêneros definidos em parametros.generos.",
+        "Identificar todos os elementos definidos em parametros.elementos_obrigatorios.",
+        "Considerar os gêneros e elementos obrigatórios como requisitos permanentes da obra.",
+        "Determinar livremente quais gêneros e elementos obrigatórios são relevantes para o capítulo e como integrá-los naturalmente à narrativa.",
+        "Preservar a continuidade dos elementos obrigatórios já estabelecidos, mesmo quando eles não forem utilizados diretamente no capítulo atual.",
+        "Determinar o próximo número como estado.ultimo_capitulo + 1.",
+        "Nunca reiniciar a numeração.",
+        "Manter a continuidade da história.",
+        "Não contradizer fatos estabelecidos.",
+        "Criar livremente novos acontecimentos quando necessário.",
+        "Se o capítulo for o número 1 e titulo estiver vazio, criar o título da obra.",
+        "Criar o título do capítulo.",
+        "Escrever o capítulo completo em primeira pessoa.",
+        "Respeitar a quantidade de palavras definida nas diretrizes.",
+        "Após escrever o capítulo, verificar se a narrativa permanece compatível com os gêneros e elementos obrigatórios relevantes para o capítulo.",
+        "Não forçar a inclusão de um elemento obrigatório apenas para cumprir uma lista quando ele não for narrativamente pertinente.",
+        "Verificar também se o capítulo não remove, esquece ou contradiz elementos obrigatórios já estabelecidos na continuidade.",
+        "Se o capítulo contradizer ou comprometer um gênero ou elemento obrigatório já estabelecido, revisar o capítulo antes de responder.",
+        "Somente retornar o capítulo depois dessa validação.",
+        "Atualizar estado.ultimo_capitulo para o número do capítulo gerado."
+      ],
+      "consolidacao_automatica": {
+        "condicao": "Executar quando a quantidade de itens em capitulos for igual ou maior que limite_capitulos.",
+        "prioridade": "A consolidação tem prioridade sobre a geração do capítulo.",
+        "procedimento": [
+          "Não gerar um novo capítulo.",
+          "Usar como material novo os capítulos atualmente presentes em capitulos.",
+          "Incorporar na Bíblia todos os fatos permanentes relevantes encontrados nesses capítulos.",
+          "Atualizar o Resumo com os acontecimentos necessários para preservar a continuidade.",
+          "Preservar na Bíblia informações anteriores que continuam válidas.",
+          "Não transformar a Bíblia em um resumo dos capítulos.",
+          "Não inventar acontecimentos.",
+          "Preservar na Bíblia os parâmetros e elementos obrigatórios já estabelecidos, sem inventar novos requisitos.",
+          "Preservar na Bíblia os elementos obrigatórios que fazem parte da obra mesmo quando não aparecerem nos capítulos recém-consolidados.",
+          "Não remover um elemento obrigatório da Bíblia apenas porque ele não foi utilizado no material novo.",
+          "Atualizar estado.consolidado_ate para o número do último capítulo recebido.",
+          "Retornar a Bíblia completa atualizada, o Resumo completo atualizado e o estado atualizado.",
+          "Não retornar os capítulos recebidos."
+        ]
       }
+    }
+  },
 
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
+  "regras": [
+    "O arquivo inteiro deve ser interpretado antes da execução.",
+    "As diretrizes são permanentes.",
+    "Os parâmetros definidos pelo usuário representam requisitos permanentes da obra e devem ser considerados durante toda a sua construção.",
+    "Os gêneros definidos em parametros.generos devem orientar a identidade e o desenvolvimento da narrativa.",
+    "Os elementos definidos em parametros.elementos_obrigatorios são requisitos permanentes da obra: devem existir e ser respeitados ao longo da história.",
+    "A presença de um elemento obrigatório não significa que ele precise aparecer em todos os capítulos.",
+    "O modelo possui liberdade criativa para determinar quando, como e em que intensidade cada gênero e elemento obrigatório será utilizado, desde que permaneça coerente com a obra.",
+    "Um elemento obrigatório não pode ser simplesmente esquecido, removido ou contradito posteriormente.",
+    "Antes de gerar um capítulo, identificar os gêneros e elementos obrigatórios relevantes para a continuidade e para o desenvolvimento do capítulo.",
+    "Depois de gerar o capítulo, verificar se a narrativa permanece coerente com os gêneros e elementos obrigatórios já estabelecidos.",
+    "Durante a consolidação, preservar na Bíblia os elementos obrigatórios que já fazem parte da obra, mesmo que não apareçam nos capítulos recém-consolidados.",
+    "Qualquer alteração significativa na natureza ou no funcionamento de um elemento obrigatório deve respeitar a continuidade estabelecida e possuir justificativa narrativa explícita.",
+    "Hierarquia de prioridade: 1. continuidade e fatos estabelecidos; 2. parâmetros da obra; 3. diretrizes permanentes; 4. estado atual da narrativa; 5. Bíblia e Resumo; 6. desenvolvimento criativo.",
+    "A criatividade deve atuar dentro dos requisitos da obra, mas o modelo não precisa receber instruções do usuário sobre como cada gênero ou elemento deve funcionar.",
+    "A Bíblia representa conhecimento permanente e consolidado.",
+    "O Resumo representa acontecimentos comprimidos para preservação de contexto.",
+    "Os capítulos representam a narrativa detalhada mais recente.",
+    "O campo estado.ultimo_capitulo representa o último capítulo gerado.",
+    "O campo estado.consolidado_ate representa o último capítulo incorporado simultaneamente à Bíblia e ao Resumo.",
+    "A diferença entre ultimo_capitulo e consolidado_ate representa capítulos ainda não consolidados.",
+    "Quando a quantidade de itens em capitulos for igual ou maior que limite_capitulos, consolidar Bíblia e Resumo antes de qualquer geração.",
+    "Após uma consolidação, o usuário substituirá Bíblia, Resumo e estado pelos dados retornados e enviará novamente o JSON sem capitulos.",
+    "Não executar consolidação parcial.",
+    "Não inventar acontecimentos durante a consolidação.",
+    "Nunca gerar capítulo na mesma resposta em que ocorrer uma consolidação.",
+    "Quando a quantidade de itens em capitulos for menor que limite_capitulos, executar normalmente o comando próximo capítulo."
+  ],
 
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: rgba(150, 150, 150, 0.3);
-        border-radius: 10px;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: rgba(150, 150, 150, 0.5);
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
-        }
-
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      .animate-fade-in {
-        animation: fadeIn 0.4s ease-out forwards;
-      }
-    </style>
-  </head>
-
-  <body>
-    <div id="root" class="h-full w-full"></div>
-
-    <script type="text/babel">
-      const { useState, useEffect, useRef } = React;
-
-      // NOVEL_FILES - INICIO
-      const NOVEL_FILES = [
-        {
-          json: "obras/a_ascensao_do_arquiteto_de_barro_o_renascimento_entre_engrenagens_e_ossos.json",
-          cover:
-            "obras/a_ascensao_do_arquiteto_de_barro_o_renascimento_entre_engrenagens_e_ossos.png",
-        },
-      ];
-      // NOVEL_FILES - FIM
-
-      const PLACEHOLDER_COVER =
-        "data:image/svg+xml;charset=UTF-8," +
-        encodeURIComponent(`
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 768">
-        <defs>
-          <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stop-color="#1f2937"/>
-            <stop offset="1" stop-color="#3b82f6"/>
-          </linearGradient>
-        </defs>
-        <rect width="512" height="768" fill="url(#g)"/>
-        <rect x="48" y="64" width="416" height="640" rx="24" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4"/>
-        <text x="256" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="76" font-weight="700" fill="#fff">LN</text>
-        <text x="256" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="rgba(255,255,255,.86)">Sem capa</text>
-      </svg>
-    `);
-
-      const THEMES = {
-        modern: {
-          id: "modern",
-          name: "Moderno",
-          icon: "ph-sun",
-          appBg: "bg-gray-50",
-          navBg: "bg-white shadow-sm",
-          text: "text-gray-900",
-          textMuted: "text-gray-500",
-          accent: "text-blue-600",
-          bgAccent: "bg-blue-50",
-          border: "border-gray-200",
-          font: "font-sans",
-          card: "bg-white shadow-sm hover:shadow-md border border-gray-100 transition-all",
-          button: "bg-blue-600 text-white hover:bg-blue-700",
-          buttonOutline:
-            "border border-gray-300 text-gray-700 hover:bg-gray-50",
-        },
-        classic: {
-          id: "classic",
-          name: "Clássico",
-          icon: "ph-book-open",
-          appBg: "bg-[#f4ecd8]",
-          navBg: "bg-[#eaddc5] shadow-sm",
-          text: "text-[#4a3b32]",
-          textMuted: "text-[#7a6b5a]",
-          accent: "text-[#8b2323]",
-          bgAccent: "bg-[#eaddc5]",
-          border: "border-[#d4c5ab]",
-          font: "font-serif",
-          card: "bg-[#fdf9f1] shadow-md hover:shadow-lg border border-[#eaddc5] transition-all",
-          button: "bg-[#5c4a3d] text-[#f4ecd8] hover:bg-[#4a3b32]",
-          buttonOutline:
-            "border border-[#5c4a3d] text-[#5c4a3d] hover:bg-[#eaddc5]",
-        },
-        futuristic: {
-          id: "futuristic",
-          name: "Futurista",
-          icon: "ph-monitor",
-          appBg: "bg-[#0a0a0f]",
-          navBg:
-            "bg-[#12121a] border-b border-[#00f0ff]/20 shadow-[0_4px_15px_rgba(0,240,255,0.05)]",
-          text: "text-[#e0e0ff]",
-          textMuted: "text-[#8a8aAA]",
-          accent: "text-[#00f0ff]",
-          bgAccent: "bg-[#00f0ff]/10",
-          border: "border-[#00f0ff]/30",
-          font: "font-mono",
-          card: "bg-[#12121a] border border-[#00f0ff]/20 shadow-[0_0_10px_rgba(0,240,255,0.05)] hover:shadow-[0_0_20px_rgba(0,240,255,0.15)] transition-all",
-          button:
-            "bg-transparent border border-[#00f0ff] text-[#00f0ff] hover:bg-[#00f0ff]/20 shadow-[0_0_10px_rgba(0,240,255,0.2)]",
-          buttonOutline:
-            "border border-[#8a8aAA]/50 text-[#e0e0ff] hover:bg-[#8a8aAA]/10",
-        },
-      };
-
-      const FONT_SIZES = {
-        sm: "text-sm md:text-base",
-        md: "text-base md:text-lg",
-        lg: "text-lg md:text-xl",
-        xl: "text-xl md:text-2xl",
-      };
-
-      const normalizeNovel = (raw, source) => {
-        const input = raw?.input || raw || {};
-        const id = source.json
-          .split("/")
-          .pop()
-          .replace(/\.json$/i, "");
-        return {
-          id,
-          title: input.title || id.replace(/_/g, " "),
-          genres: Array.isArray(input.genres) ? input.genres : [],
-          elements: Array.isArray(input.elements) ? input.elements : [],
-          additionalNotes: Array.isArray(input.additional_notes)
-            ? input.additional_notes
-            : [],
-          chapters: Array.isArray(input.chapters) ? input.chapters : [],
-          coverImageBase64: source.cover || PLACEHOLDER_COVER,
-          sourceJson: source.json,
-        };
-      };
-
-      function App() {
-        const [novels, setNovels] = useState([]);
-        const [loading, setLoading] = useState(true);
-        const [error, setError] = useState(null);
-        const [currentView, setCurrentView] = useState("library");
-        const [activeNovel, setActiveNovel] = useState(null);
-        const [activeChapterIndex, setActiveChapterIndex] = useState(0);
-        const [isFullscreenCover, setIsFullscreenCover] = useState(false);
-        const [themeId, setThemeId] = useState(
-          () => localStorage.getItem("ln-theme") || "modern",
-        );
-        const [fontSize, setFontSize] = useState(
-          () => localStorage.getItem("ln-fontsize") || "md",
-        );
-        const [textAlign, setTextAlign] = useState(
-          () => localStorage.getItem("ln-textalign") || "text-justify",
-        );
-        const [showSettings, setShowSettings] = useState(false);
-        const [isUIHidden, setIsUIHidden] = useState(false);
-        const [progress, setProgress] = useState(() => {
-          try {
-            return JSON.parse(localStorage.getItem("ln-progress")) || {};
-          } catch (e) {
-            return {};
+  "contrato_de_saida": {
+    "formato": "JSON válido.",
+    "regra_principal": "A resposta deve conter somente os campos definidos para a operação executada. Não incluir explicações, Markdown externo, cercas de código ou campos não previstos. Antes de responder, validar a sintaxe JSON completa e confirmar que todos os requisitos obrigatórios aplicáveis foram atendidos.",
+    "geracao_capitulo": {
+      "condicao": "Quando a quantidade de itens em capitulos for menor que limite_capitulos.",
+      "estrutura": {
+        "capitulos": [
+          {
+            "titulo": "",
+            "numero": 0,
+            "conteudo": ""
           }
+        ]
+      },
+      "regras": [
+        "Retornar exatamente um novo item dentro de capitulos.",
+        "numero deve ser o número global do capítulo gerado.",
+        "titulo deve conter o título do capítulo.",
+        "conteudo deve conter somente o capítulo em Markdown.",
+        "Os gêneros e elementos obrigatórios relevantes para o capítulo devem ter sido considerados e validados antes da resposta.",
+        "Dentro de qualquer string JSON, toda aspa dupla literal do texto deve ser escapada como \\\".",
+        "Nunca inserir aspas duplas não escapadas dentro de conteudo.",
+        "A resposta final deve ser JSON sintaticamente válido antes de ser enviada.",
+        "Não usar cercas de código nem texto fora do JSON.",
+        "Se for o capítulo 1 e o título da obra estiver vazio, incluir também o campo titulo no objeto de resposta.",
+        "Não retornar capítulos anteriores.",
+        "Não retornar Bíblia ou Resumo."
+      ]
+    },
+    "primeiro_capitulo": {
+      "estrutura": {
+        "titulo": "",
+        "capitulos": [
+          {
+            "titulo": "",
+            "numero": 1,
+            "conteudo": ""
+          }
+        ]
+      },
+      "regra": "Usar esta estrutura somente quando o capítulo gerado for o número 1 e o título da obra ainda estiver vazio."
+    },
+    "consolidacao": {
+      "condicao": "Quando a quantidade de itens em capitulos for igual ou maior que limite_capitulos.",
+      "estrutura": {
+        "biblia": {
+          "protagonista": {},
+          "premissa_e_lore": [],
+          "personagens": [],
+          "continuidade_e_fatos": []
+        },
+        "resumo": {
+          "conteudo": ""
+        },
+        "estado": {
+          "ultimo_capitulo": 0,
+          "consolidado_ate": 0
+        }
+      },
+      "regras": [
+        "Retornar a Bíblia completa e pronta para substituir a Bíblia original.",
+        "Retornar o Resumo completo e pronto para substituir o Resumo original.",
+        "Retornar o estado completo e pronto para substituir o estado original.",
+        "Não retornar somente as alterações.",
+        "Não retornar os capítulos.",
+        "Não retornar instruções.",
+        "Não retornar campos parciais.",
+        "consolidado_ate deve receber o número do último capítulo recebido.",
+        "ultimo_capitulo deve permanecer igual ao último capítulo gerado."
+      ]
+    }
+  }
+};
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+
+function lightNovelManager(){
+  return {
+    json: clone(MODELO),
+    capitulosArquivados: [],
+    capa: {dataUrl:"", nome:"", tipo:""},
+    promptCapa: "",
+    abaAtiva: "obra",
+    resposta: "",
+    editarJsonDireto: false,
+    jsonEditado: "",
+    mensagem: "",
+    tipoMensagem: "ok",
+    modalSalvar: false,
+    modalCarregar: false,
+    modalMemoria: false,
+    modalSecoes: false,
+    memorias: [],
+    secoes: [
+      {id:"obra", label:"Obra", icon:"bi-book"},
+      {id:"parametros", label:"Parâmetros", icon:"bi-sliders"},
+      {id:"estado", label:"Estado", icon:"bi-activity"},
+      {id:"biblia", label:"Bíblia", icon:"bi-book-half"},
+      {id:"resumo", label:"Resumo", icon:"bi-card-text"},
+      {id:"buffer", label:"Buffer", icon:"bi-stack"},
+      {id:"arquivados", label:"Arquivados", icon:"bi-archive"},
+      {id:"capa", label:"Capa", icon:"bi-image"},
+      {id:"prompt", label:"Prompt JSON", icon:"bi-braces"},
+      {id:"resposta", label:"Resposta IA", icon:"bi-robot"}
+    ],
+    leitorAberto: false,
+    menuMobileAberto: false,
+    _dbPromise: null,
+
+    get jsonString(){
+      return JSON.stringify(this.json, null, 2);
+    },
+
+    get secaoAtual(){
+      return this.secoes.find(secao => secao.id === this.abaAtiva) || this.secoes[0];
+    },
+
+    abrirSecoes(){
+      this.modalSecoes = true;
+    },
+
+    fecharSecoes(){
+      this.modalSecoes = false;
+    },
+
+    selecionarSecao(id){
+      this.abaAtiva = id;
+      this.fecharSecoes();
+    },
+
+    init(){
+      this.capitulosArquivados = [];
+      this.capa = {dataUrl:"", nome:"", tipo:""};
+      this.promptCapa = "";
+      this.abaAtiva = "obra";
+      this.jsonEditado = this.jsonString;
+      this.mostrar("Pronto.", "ok");
+    },
+
+    alternarEdicaoJson(){
+      if(this.editarJsonDireto){
+        this.jsonEditado = this.jsonString;
+        return;
+      }
+
+      // Ao desligar o switch, persiste a edição antes de voltar para somente leitura.
+      this.aplicarJsonEditado();
+    },
+
+    aplicarJsonEditado(){
+      try{
+        const obj = JSON.parse(this.jsonEditado);
+        if(!obj || typeof obj !== "object" || Array.isArray(obj)){
+          throw new Error("O JSON precisa ser um objeto.");
+        }
+        // O histórico é responsabilidade do Manager e nunca pertence ao prompt da IA.
+        delete obj.capitulos_arquivados;
+        delete obj.capa;
+        this.json = obj;
+        this.jsonEditado = this.jsonString;
+        return true;
+      }catch(e){
+        this.mostrar("JSON inválido: " + e.message, "error");
+        return false;
+      }
+    },
+
+    pretty(obj){
+      return JSON.stringify(obj, null, 2);
+    },
+
+    mostrar(msg, tipo="ok"){
+      this.mensagem = msg;
+      this.tipoMensagem = tipo;
+      clearTimeout(this._timer);
+      this._timer = setTimeout(()=>this.mensagem="", 3500);
+    },
+
+    novoPrompt(){
+      this.json = clone(MODELO);
+      this.capitulosArquivados = [];
+      this.capa = {dataUrl:"", nome:"", tipo:""};
+      this.promptCapa = "";
+      this.abaAtiva = "obra";
+      this.jsonEditado = this.jsonString;
+      this.resposta = "";
+      this.mostrar("Novo prompt criado.", "ok");
+    },
+
+    adicionarParametro(campo){
+      this.json.parametros[campo].push("");
+    },
+
+    removerParametro(campo,index){
+      this.json.parametros[campo].splice(index,1);
+    },
+
+    removerInstrucoes(obj){
+      if(Array.isArray(obj)) return obj.map(item => this.removerInstrucoes(item));
+      if(obj && typeof obj === "object"){
+        const out = {};
+        Object.entries(obj).forEach(([chave,valor])=>{
+          if(chave === "instrucao") return;
+          out[chave] = this.removerInstrucoes(valor);
+        });
+        return out;
+      }
+      return obj;
+    },
+
+    obterCapitulo1(){
+      const todos = this.obterCapitulosExportacao();
+      return todos.find(cap => Number(cap?.numero) === 1) || null;
+    },
+
+    gerarPromptCapa(){
+      const titulo = String(this.json.titulo || "Título não definido").trim();
+      const generos = Array.isArray(this.json.parametros?.generos) ? this.json.parametros.generos.filter(Boolean) : [];
+      const elementos = Array.isArray(this.json.parametros?.elementos_obrigatorios) ? this.json.parametros.elementos_obrigatorios.filter(Boolean) : [];
+      const consolidadoAte = Number(this.json.estado?.consolidado_ate) || 0;
+      const linhas = [];
+      linhas.push("Crie a arte de capa de um livro de light novel.", "", "OBRA", `Título: ${titulo}`, "", "GÊNEROS", generos.length ? generos.map(g=>"- "+g).join("\n") : "- Não informado", "", "ELEMENTOS OBRIGATÓRIOS", elementos.length ? elementos.map(e=>"- "+e).join("\n") : "- Não informado", "");
+
+      if(consolidadoAte === 0){
+        const cap1 = this.obterCapitulo1();
+        linhas.push("ESTÁGIO DA OBRA", "A obra ainda não possui consolidação. Use o capítulo 1 como base narrativa para definir a identidade visual da capa.", "", "CAPÍTULO 1", cap1 ? JSON.stringify(cap1, null, 2) : "Capítulo 1 ainda não disponível.", "");
+      }else{
+        const biblia = this.removerInstrucoes(clone(this.json.biblia || {}));
+        const resumo = this.removerInstrucoes(clone(this.json.resumo || {}));
+        linhas.push("ESTÁGIO DA OBRA", `Material consolidado até o capítulo ${consolidadoAte}.`, "", "BÍBLIA DA HISTÓRIA", JSON.stringify(biblia, null, 2), "", "RESUMO DA TRAMA", JSON.stringify(resumo, null, 2), "");
+      }
+
+      linhas.push(
+        "DIREÇÃO ARTÍSTICA",
+        "Extraia dos dados fornecidos os elementos visuais mais importantes para representar a identidade da obra.",
+        "Priorize protagonista, símbolos recorrentes, cenário, conflito central, atmosfera e elementos únicos do universo.",
+        "Escolha um conceito visual central e uma composição clara; não tente representar todos os acontecimentos.",
+        "Respeite os gêneros e elementos obrigatórios sem contradizer os dados fornecidos.",
+        "Composição vertical de capa de livro, proporção aproximada de 2:3, com foco legível em miniatura.",
+        "Reserve espaço negativo limpo na parte superior para aplicação posterior do título.",
+        "Arte de capa de light novel de alta qualidade, acabamento profissional, iluminação expressiva, profundidade visual e paleta coerente com o tom da obra.",
+        "Não inserir título, subtítulo, nome de autor, letras, palavras, logotipos ou marcas d'água.",
+        "Não usar mockup, página de livro ou colagem de várias cenas."
+      );
+
+      this.promptCapa = linhas.join("\n");
+      this.mostrar("Prompt da capa gerado com base no estágio atual da obra.", "ok");
+    },
+
+    async copiarPromptCapa(){
+      if(!this.promptCapa.trim()) this.gerarPromptCapa();
+      try{ await navigator.clipboard.writeText(this.promptCapa); this.mostrar("Prompt da capa copiado para a área de transferência.", "ok"); }
+      catch(e){ this.mostrar("Não foi possível copiar automaticamente.", "error"); }
+    },
+
+    carregarCapa(event){
+      const file = event.target.files && event.target.files[0];
+      if(!file) return;
+      if(!file.type || !file.type.startsWith("image/")){
+        this.mostrar("Selecione um arquivo de imagem válido.", "error");
+        event.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || "");
+        if(!dataUrl.startsWith("data:image/")){ this.mostrar("Não foi possível converter a imagem para Base64.", "error"); return; }
+        this.capa = {dataUrl, nome:file.name || "capa", tipo:file.type || "image/*"};
+        this.mostrar("Capa carregada com sucesso.", "ok");
+      };
+      reader.onerror = () => this.mostrar("Não foi possível ler a imagem da capa.", "error");
+      reader.readAsDataURL(file);
+    },
+
+    removerCapa(){
+      this.capa = {dataUrl:"", nome:"", tipo:""};
+      const input = document.getElementById("coverLoader");
+      if(input) input.value = "";
+      this.mostrar("Capa removida.", "ok");
+    },
+
+    async copiarJson(){
+      if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+
+      try{
+        await navigator.clipboard.writeText(this.jsonString);
+        this.mostrar("JSON copiado para a área de transferência.", "ok");
+      }catch(e){
+        this.mostrar("Não foi possível copiar automaticamente.", "error");
+      }
+    },
+
+    extrairJsonResposta(texto){
+      let s = String(texto || "").trim();
+
+      // Aceita resposta dentro de ```json ... ```
+      const bloco = s.match(/```(?:json|json5)?\s*([\s\S]*?)\s*```/i);
+      if(bloco) s = bloco[1].trim();
+
+      try { return JSON5.parse(s); }
+      catch(e){ throw new Error("A resposta não contém um JSON válido."); }
+    },
+
+    async colarResposta(){
+      try{
+        if(!navigator.clipboard || !navigator.clipboard.readText){
+          throw new Error("A leitura da área de transferência não está disponível neste navegador.");
+        }
+
+        const texto = await navigator.clipboard.readText();
+
+        if(!texto.trim()){
+          this.mostrar("A área de transferência está vazia.", "error");
+          return;
+        }
+
+        this.resposta = texto;
+        this.mostrar("Resposta colada no campo da IA.", "ok");
+      }catch(e){
+        this.mostrar("Não foi possível colar automaticamente. Verifique a permissão da área de transferência.", "error");
+      }
+    },
+
+    aplicarRespostaPrompt(){
+      if(!this.resposta.trim()){
+        this.mostrar("Cole primeiro a resposta da IA.", "error");
+        return;
+      }
+
+      try{
+        const r = this.extrairJsonResposta(this.resposta);
+
+        let alterado = false;
+
+        // Novo título criado no capítulo 1
+        if(Object.prototype.hasOwnProperty.call(r,"titulo")){
+          this.json.titulo = r.titulo;
+          alterado = true;
+        }
+
+        // Consolidação: substituição integral.
+        // O contrato da IA permanece inalterado. O Manager arquiva o buffer
+        // somente quando recebe a resposta completa de consolidação.
+        const ehConsolidacao =
+          Object.prototype.hasOwnProperty.call(r,"biblia") &&
+          Object.prototype.hasOwnProperty.call(r,"resumo") &&
+          Object.prototype.hasOwnProperty.call(r,"estado");
+
+        if(ehConsolidacao){
+          if(this.json.capitulos.length){
+            this.capitulosArquivados.push(...clone(this.json.capitulos));
+            this.capitulosArquivados.sort((a,b) => Number(a.numero) - Number(b.numero));
+            this.json.capitulos = [];
+          }
+
+          this.json.biblia = clone(r.biblia);
+          this.json.resumo = clone(r.resumo);
+          this.json.estado = clone(r.estado);
+          alterado = true;
+        }else{
+          if(Object.prototype.hasOwnProperty.call(r,"biblia")){
+            this.json.biblia = clone(r.biblia);
+            alterado = true;
+          }
+
+          if(Object.prototype.hasOwnProperty.call(r,"resumo")){
+            this.json.resumo = clone(r.resumo);
+            alterado = true;
+          }
+
+          if(Object.prototype.hasOwnProperty.call(r,"estado")){
+            this.json.estado = clone(r.estado);
+            alterado = true;
+          }
+        }
+
+        // Geração de capítulo: adiciona ao buffer
+        if(Array.isArray(r.capitulos)){
+          let maiorNumeroRecebido = null;
+
+          for(const cap of r.capitulos){
+            if(!cap || typeof cap !== "object") continue;
+            if(typeof cap.numero !== "number") throw new Error("Capítulo sem número válido.");
+            if(typeof cap.titulo !== "string") throw new Error("Capítulo sem título válido.");
+            if(typeof cap.conteudo !== "string") throw new Error("Capítulo sem conteúdo válido.");
+
+            this.json.capitulos.push(clone(cap));
+
+            if(maiorNumeroRecebido === null || cap.numero > maiorNumeroRecebido){
+              maiorNumeroRecebido = cap.numero;
+            }
+          }
+
+          // A resposta normal de geração de capítulo não devolve "estado".
+          // Portanto, o Manager atualiza aqui o último capítulo efetivamente gerado.
+          if(maiorNumeroRecebido !== null){
+            const atual = Number(this.json.estado?.ultimo_capitulo) || 0;
+            this.json.estado.ultimo_capitulo = Math.max(atual, maiorNumeroRecebido);
+          }
+
+          alterado = true;
+        }
+
+        if(!alterado){
+          throw new Error("A resposta não contém nenhum campo reconhecido para atualização.");
+        }
+
+        this.resposta = "";
+        this.mostrar("Resposta aplicada ao JSON.", "ok");
+
+      }catch(e){
+        this.mostrar(e.message, "error");
+      }
+    },
+
+    abrirSalvar(){
+      this.modalSalvar = true;
+    },
+
+    fecharSalvar(){
+      this.modalSalvar = false;
+    },
+
+    abrirCarregar(){
+      this.modalCarregar = true;
+    },
+
+    fecharCarregar(){
+      this.modalCarregar = false;
+    },
+
+    async abrirMemoria(){
+      try{
+        this.fecharCarregar();
+        await this.atualizarMemorias();
+        this.modalMemoria = true;
+      }catch(e){
+        this.mostrar("Erro ao abrir a memória: " + (e.message || e), "error");
+      }
+    },
+
+    fecharMemoria(){
+      this.modalMemoria = false;
+    },
+
+    abrirArquivoCarregar(){
+      this.fecharCarregar();
+      document.getElementById("fileLoader").value = "";
+      document.getElementById("fileLoader").click();
+    },
+
+    abrirBancoMemoria(){
+      if(this._dbPromise) return this._dbPromise;
+      this._dbPromise = new Promise((resolve,reject)=>{
+        if(!window.indexedDB){
+          reject(new Error("IndexedDB não está disponível neste navegador."));
+          return;
+        }
+        const request = indexedDB.open("LightNovelManager",1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if(!db.objectStoreNames.contains("obras")){
+            db.createObjectStore("obras", {keyPath:"_managerV7.id"});
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error("Não foi possível abrir o IndexedDB."));
+      });
+      return this._dbPromise;
+    },
+
+    async salvarMemoria(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+
+        const db = await this.abrirBancoMemoria();
+        const id = this._memoriaIdAtual || (crypto.randomUUID ? crypto.randomUUID() : "obra-" + Date.now() + "-" + Math.random().toString(36).slice(2));
+        const agora = new Date().toISOString();
+        const anterior = await new Promise((resolve,reject)=>{
+          const tx=db.transaction("obras","readonly");
+          const req=tx.objectStore("obras").get(id);
+          req.onsuccess=()=>resolve(req.result);
+          req.onerror=()=>reject(req.error);
         });
 
-        const scrollContainerRef = useRef(null);
-        const scrollTimeoutRef = useRef(null);
-        const theme = THEMES[themeId];
+        const obra = clone(this.json);
+        obra._managerV7 = {
+          id,
+          criadoEm: anterior?._managerV7?.criadoEm || agora,
+          atualizadoEm: agora,
+          capitulosArquivados: clone(this.capitulosArquivados || []),
+          capa: clone(this.capa || {dataUrl:"",nome:"",tipo:""}),
+          totalCapitulos: (Array.isArray(this.capitulosArquivados)?this.capitulosArquivados.length:0) + (Array.isArray(this.json.capitulos)?this.json.capitulos.length:0)
+        };
 
-        useEffect(() => {
-          localStorage.setItem("ln-theme", themeId);
-          localStorage.setItem("ln-fontsize", fontSize);
-          localStorage.setItem("ln-textalign", textAlign);
-        }, [themeId, fontSize, textAlign]);
+        await new Promise((resolve,reject)=>{
+          const tx=db.transaction("obras","readwrite");
+          tx.objectStore("obras").put(obra);
+          tx.oncomplete=resolve;
+          tx.onerror=()=>reject(tx.error);
+          tx.onabort=()=>reject(tx.error || new Error("Não foi possível salvar a obra."));
+        });
 
-        useEffect(() => {
-          const fetchJson = async () => {
-            try {
-              setLoading(true);
-              const loaded = await Promise.all(
-                NOVEL_FILES.map(async (source) => {
-                  const response = await fetch(source.json);
-                  if (!response.ok)
-                    throw new Error(`Ficheiro não encontrado: ${source.json}`);
-                  const data = await response.json();
-                  return normalizeNovel(data, source);
-                }),
-              );
-              setNovels(loaded);
-            } catch (err) {
-              setError(
-                "Não foi possível carregar as obras. Sirva este diretório por HTTP e verifique os caminhos em NOVEL_FILES.",
-              );
-            } finally {
-              setLoading(false);
-            }
-          };
-          fetchJson();
-        }, []);
+        this._memoriaIdAtual = id;
+        this.fecharSalvar();
+        this.mostrar("Obra salva na memória.","ok");
+      }catch(e){
+        this.mostrar("Erro ao salvar na memória: " + (e.message || e),"error");
+      }
+    },
 
-        const getChapters = (novel) => novel?.chapters || [];
-        const getNovelKey = (novel) => novel?.id || novel?.title;
+    async atualizarMemorias(){
+      const db = await this.abrirBancoMemoria();
+      this.memorias = await new Promise((resolve,reject)=>{
+        const tx=db.transaction("obras","readonly");
+        const req=tx.objectStore("obras").getAll();
+        req.onsuccess=()=>{
+          const itens=(req.result||[]).filter(x=>x && x._managerV7);
+          itens.sort((a,b)=>String(b._managerV7.atualizadoEm||"").localeCompare(String(a._managerV7.atualizadoEm||"")));
+          resolve(itens);
+        };
+        req.onerror=()=>reject(req.error);
+      });
+    },
 
-        const updateProgress = (novelId, updates) => {
-          setProgress((prev) => {
-            const currentProg = prev[novelId] || { scrollPositions: {} };
-            const newProg = {
-              ...prev,
-              [novelId]: { ...currentProg, ...updates },
-            };
-            localStorage.setItem("ln-progress", JSON.stringify(newProg));
-            return newProg;
+    async carregarMemoria(id){
+      try{
+        const db=await this.abrirBancoMemoria();
+        const obra=await new Promise((resolve,reject)=>{
+          const tx=db.transaction("obras","readonly");
+          const req=tx.objectStore("obras").get(id);
+          req.onsuccess=()=>resolve(req.result);
+          req.onerror=()=>reject(req.error);
+        });
+        if(!obra || !obra._managerV7) throw new Error("A obra selecionada não foi encontrada.");
+
+        const meta=obra._managerV7;
+        delete obra._managerV7;
+        this.validarJsonObra(obra);
+        this.json=obra;
+        this.capitulosArquivados=Array.isArray(meta.capitulosArquivados)?meta.capitulosArquivados:[];
+        this.capa=meta.capa && typeof meta.capa === "object" ? {
+          dataUrl:String(meta.capa.dataUrl||""),
+          nome:String(meta.capa.nome||""),
+          tipo:String(meta.capa.tipo||"")
+        } : {dataUrl:"",nome:"",tipo:""};
+        this.json.capitulos.sort((a,b)=>Number(a.numero)-Number(b.numero));
+        this.capitulosArquivados.sort((a,b)=>Number(a.numero)-Number(b.numero));
+        this._memoriaIdAtual=meta.id;
+        this.jsonEditado=this.jsonString;
+        this.resposta="";
+        this.promptCapa="";
+        this.abaAtiva="obra";
+        this.fecharMemoria();
+        this.mostrar("Obra carregada da memória.","ok");
+      }catch(e){
+        this.mostrar("Erro ao carregar da memória: " + (e.message || e),"error");
+      }
+    },
+
+    formatarDataMemoria(valor){
+      if(!valor) return "sem data";
+      try{return new Date(valor).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}
+      catch(e){return "sem data";}
+    },
+
+    async abrirLeitorInterno(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+        const jsonParaLeitor=clone(this.json);
+        delete jsonParaLeitor.capitulos_arquivados;
+        delete jsonParaLeitor.capa;
+        const jsonTexto=JSON.stringify(jsonParaLeitor,null,2).replace(/<\/script/gi,"<\\/script");
+        const arquivadosTexto=JSON.stringify(this.capitulosArquivados||[],null,2).replace(/<\/script/gi,"<\\/script");
+        const capaTexto=JSON.stringify(this.capa||{dataUrl:"",nome:"",tipo:""},null,2).replace(/<\/script/gi,"<\\/script");
+        const leitor=this.gerarHtmlLeitor(jsonTexto,arquivadosTexto,capaTexto);
+        const frame=document.getElementById("readerInternalFrame");
+        if(!frame) throw new Error("Área do leitor não encontrada.");
+        frame.srcdoc=leitor;
+        this.leitorAberto=true;
+      }catch(e){
+        this.mostrar("Erro ao abrir leitor: " + (e.message || e),"error");
+      }
+    },
+
+    fecharLeitorInterno(){
+      this.leitorAberto=false;
+      const frame=document.getElementById("readerInternalFrame");
+      if(frame) frame.srcdoc="";
+    },
+
+    async salvarModelo(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+
+        const texto = JSON.stringify(this.json, null, 2);
+        const nome = this.nomeArquivo().replace(/\.html$/i, ".json");
+
+        if(window.showSaveFilePicker){
+          const handle = await window.showSaveFilePicker({
+            suggestedName: nome,
+            types:[{
+              description:"Arquivo JSON",
+              accept:{"application/json":[".json"]}
+            }]
           });
-        };
+          const writable = await handle.createWritable();
+          await writable.write(new Blob([texto], {type:"application/json"}));
+          await writable.close();
+        }else{
+          const blob = new Blob([texto], {type:"application/json;charset=utf-8"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = nome;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }
 
-        const goToChapter = (idx) => {
-          setActiveChapterIndex(idx);
-          if (activeNovel)
-            updateProgress(getNovelKey(activeNovel), { lastChapterIndex: idx });
-        };
+        this.fecharSalvar();
+        this.mostrar("Modelo salvo com sucesso.", "ok");
+      }catch(e){
+        if(e && e.name === "AbortError") return;
+        this.mostrar("Erro ao salvar modelo: " + (e.message || e), "error");
+      }
+    },
 
-        const handleScroll = (e) => {
-          if (!activeNovel) return;
-          const el = e.target;
-          const totalScrollable = el.scrollHeight - el.clientHeight;
-          const percentage =
-            totalScrollable > 0 ? el.scrollTop / totalScrollable : 0;
+    obterCapitulosExportacao(){
+      return [
+        ...(Array.isArray(this.capitulosArquivados) ? this.capitulosArquivados : []),
+        ...(Array.isArray(this.json.capitulos) ? this.json.capitulos : [])
+      ].sort((a,b)=>Number(a.numero)-Number(b.numero));
+    },
 
-          if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-          scrollTimeoutRef.current = setTimeout(() => {
-            const nKey = getNovelKey(activeNovel);
-            setProgress((prev) => {
-              const currentProg = prev[nKey] || { scrollPositions: {} };
-              const newProg = {
-                ...prev,
-                [nKey]: {
-                  ...currentProg,
-                  scrollPositions: {
-                    ...currentProg.scrollPositions,
-                    [activeChapterIndex]: percentage,
-                  },
-                },
-              };
-              localStorage.setItem("ln-progress", JSON.stringify(newProg));
-              return newProg;
-            });
-          }, 300);
-        };
+    removerTituloDuplicadoMarkdown(markdown, titulo){
+      let text = String(markdown || "");
+      const alvo = String(titulo || "").trim().toLowerCase();
+      if(!alvo) return text;
 
-        useEffect(() => {
-          if (
-            currentView === "reader" &&
-            activeNovel &&
-            scrollContainerRef.current
-          ) {
-            const nKey = getNovelKey(activeNovel);
-            const savedPerc =
-              progress[nKey]?.scrollPositions?.[activeChapterIndex] || 0;
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                if (scrollContainerRef.current) {
-                  const el = scrollContainerRef.current;
-                  const totalScrollable = el.scrollHeight - el.clientHeight;
-                  el.scrollTop = savedPerc * totalScrollable;
-                }
-              });
-            });
-          }
-        }, [currentView, activeChapterIndex, activeNovel, fontSize, textAlign]);
+      const normalizar = v => String(v)
+        .replace(/[*_~]/g,"")
+        .replace(/^\s*\d+\s*[.):-]\s*/,"")
+        .trim()
+        .toLowerCase();
 
-        const renderCover = (novel, className, onClick) => (
-          <img
-            src={novel.coverImageBase64}
-            onError={(event) => {
-              event.currentTarget.src = PLACEHOLDER_COVER;
-            }}
-            className={className}
-            alt="Capa"
-            onClick={onClick}
-          />
-        );
+      const heading = text.match(/^\s{0,3}#{1,6}\s+(.+?)(?:\r?\n|$)/);
+      if(heading && normalizar(heading[1]) === alvo) return text.slice(heading[0].length);
 
-        const renderLibrary = () => (
-          <div className="h-full overflow-y-auto p-6 animate-fade-in">
-            <div className="max-w-6xl mx-auto">
-              <header className="mb-10 flex justify-between items-center">
-                <div>
-                  <h1 className={`text-4xl font-bold mb-2 ${theme.text}`}>
-                    A Minha Biblioteca
-                  </h1>
-                  <p className={theme.textMuted}>
-                    {novels.length} obra(s) encontrada(s)
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`p-3 rounded-full ${theme.buttonOutline}`}
-                >
-                  <i className="ph ph-gear text-2xl"></i>
-                </button>
-              </header>
+      const first = text.match(/^\s*(.+?)(?:\r?\n|$)/);
+      if(first && normalizar(first[1]) === alvo) return text.slice(first[0].length);
+      return text;
+    },
 
-              {showSettings && renderSettingsPanel()}
+    markdownParaHtml(markdown){
+      const html = window.marked
+        ? marked.parse(String(markdown || ""))
+        : "<p>" + this.escapeHtml(String(markdown || "")).replace(/\r?\n\r?\n/g,"</p><p>").replace(/\r?\n/g,"<br>") + "</p>";
+      return window.DOMPurify ? DOMPurify.sanitize(html) : html;
+    },
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-20">
-                {novels.map((novel) => {
-                  const nKey = getNovelKey(novel);
-                  const novelProg = progress[nKey];
-                  const hasProgress =
-                    novelProg && novelProg.lastChapterIndex !== undefined;
+    async criarEpubBase(){
+      if(typeof EBook === "undefined") throw new Error("A biblioteca epubit não foi carregada.");
 
-                  return (
-                    <div
-                      key={nKey}
-                      className={`rounded-xl overflow-hidden cursor-pointer flex flex-col h-full ${theme.card}`}
-                      onClick={() => {
-                        setActiveNovel(novel);
-                        setCurrentView("details");
-                      }}
-                    >
-                      <div className="h-64 w-full overflow-hidden relative">
-                        {renderCover(
-                          novel,
-                          "w-full h-full object-cover transition-transform duration-300 hover:scale-105",
-                        )}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 flex justify-between items-end">
-                          <span className="text-white text-xs font-bold px-2 py-1 bg-black/50 rounded-full backdrop-blur-sm">
-                            {getChapters(novel).length} Capítulos
-                          </span>
-                          {hasProgress && (
-                            <span className="text-white text-xs px-2 py-1 bg-blue-600/80 rounded-full flex items-center gap-1">
-                              <i className="ph ph-bookmark-simple-fill"></i> Cap{" "}
-                              {novelProg.lastChapterIndex + 1}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+      const caps = this.obterCapitulosExportacao();
+      if(!caps.length) throw new Error("Não há capítulos para exportar.");
 
-                      <div className="p-5 flex-grow flex flex-col">
-                        <h2
-                          className={`text-xl font-bold mb-2 line-clamp-2 ${theme.text}`}
-                        >
-                          {novel.title}
-                        </h2>
-                        <div className="flex flex-wrap gap-2 mt-auto pt-4">
-                          {novel.genres?.slice(0, 3).map((genre, idx) => (
-                            <span
-                              key={idx}
-                              className={`text-xs px-2 py-1 rounded-md ${theme.bgAccent} ${theme.accent}`}
-                            >
-                              {genre}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        );
+      const titulo = String(this.json.titulo || "Light Novel");
+      const book = new EBook({
+        title: titulo,
+        author: "",
+        language: "pt-BR",
+        publisher: "",
+        description: "",
+        sanitize: true
+      });
 
-        const renderDetails = () => {
-          if (!activeNovel) return null;
-          const chapters = getChapters(activeNovel);
-          const nKey = getNovelKey(activeNovel);
-          const novelProg = progress[nKey] || {};
-          const lastIdx = novelProg.lastChapterIndex || 0;
-          const hasStarted =
-            Object.keys(novelProg.scrollPositions || {}).length > 0;
+      const css = `body{margin:5%;}h1{font-size:1.6em;line-height:1.25;margin:0 0 1.5em;}p{margin:0 0 1em;}blockquote{margin:1em 1.5em;}a{color:inherit;}`;
+      book.addCSS("style.css", css);
 
-          return (
-            <div className="h-full overflow-y-auto animate-fade-in relative">
-              <div className="max-w-4xl mx-auto p-4 md:p-6 pb-20">
-                <button
-                  onClick={() => setCurrentView("library")}
-                  className={`mb-6 flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${theme.buttonOutline}`}
-                >
-                  <i className="ph ph-arrow-left text-xl"></i> Voltar
-                </button>
-
-                <div
-                  className={`rounded-2xl p-6 md:p-8 mb-8 flex flex-col md:flex-row gap-8 ${theme.card}`}
-                >
-                  {renderCover(
-                    activeNovel,
-                    "w-full md:w-64 h-auto object-cover rounded-xl shadow-lg flex-shrink-0 cursor-zoom-in hover:opacity-90 transition-opacity",
-                    () => setIsFullscreenCover(true),
-                  )}
-
-                  <div className="flex-grow">
-                    <h1
-                      className={`text-3xl md:text-5xl font-bold mb-4 ${theme.text}`}
-                    >
-                      {activeNovel.title}
-                    </h1>
-
-                    <div className="flex flex-wrap gap-2 mb-6">
-                      {activeNovel.genres?.map((genre, idx) => (
-                        <span
-                          key={idx}
-                          className={`text-sm px-3 py-1 rounded-full border ${theme.border} ${theme.text}`}
-                        >
-                          {genre}
-                        </span>
-                      ))}
-                    </div>
-
-                    {activeNovel.additionalNotes &&
-                      activeNovel.additionalNotes.length > 0 && (
-                        <div className="mb-6">
-                          <h3 className={`font-bold mb-2 ${theme.textMuted}`}>
-                            Sinopse / Notas:
-                          </h3>
-                          <ul
-                            className={`list-disc list-inside space-y-1 ${theme.text}`}
-                          >
-                            {activeNovel.additionalNotes.map((note, idx) => (
-                              <li key={idx} className="text-sm opacity-90">
-                                {note}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                    {chapters.length > 0 && (
-                      <button
-                        onClick={() => {
-                          goToChapter(lastIdx);
-                          setCurrentView("reader");
-                          setIsUIHidden(false);
-                        }}
-                        className={`mt-6 w-full md:w-auto px-8 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 ${theme.button}`}
-                      >
-                        <i className="ph ph-book-open text-2xl"></i>
-                        {hasStarted
-                          ? `Continuar a Ler (Cap. ${lastIdx + 1})`
-                          : "Começar a Ler"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className={`rounded-2xl p-6 md:p-8 ${theme.card}`}>
-                  <h2
-                    className={`text-2xl font-bold mb-6 flex items-center gap-2 ${theme.text}`}
-                  >
-                    <i
-                      className={`ph ph-list-bullets text-3xl ${theme.accent}`}
-                    ></i>{" "}
-                    Índice de Capítulos
-                  </h2>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {chapters.map((chapter, idx) => {
-                      const chapTitle =
-                        chapter.title || chapter.name || `Capítulo ${idx + 1}`;
-                      const savedScroll = novelProg.scrollPositions?.[idx] || 0;
-                      const progressPercent = Math.round(savedScroll * 100);
-                      const isCompleted = progressPercent > 95;
-
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            goToChapter(idx);
-                            setCurrentView("reader");
-                            setIsUIHidden(false);
-                          }}
-                          className={`text-left p-4 rounded-xl border flex flex-col justify-center transition-colors hover:border-transparent ${theme.border} hover:${theme.bgAccent}`}
-                        >
-                          <div className="flex justify-between items-center w-full">
-                            <span
-                              className={`font-medium truncate ${theme.text}`}
-                            >
-                              <span
-                                className={`mr-2 font-bold ${theme.accent}`}
-                              >
-                                {(idx + 1).toString().padStart(2, "0")}.
-                              </span>
-                              {chapTitle}
-                            </span>
-                            {isCompleted ? (
-                              <i className="ph-fill ph-check-circle text-green-500 text-xl"></i>
-                            ) : progressPercent > 0 ? (
-                              <span
-                                className={`text-xs font-bold ${theme.textMuted}`}
-                              >
-                                {progressPercent}%
-                              </span>
-                            ) : (
-                              <i
-                                className={`ph ph-caret-right text-lg ${theme.textMuted}`}
-                              ></i>
-                            )}
-                          </div>
-                          {progressPercent > 0 && !isCompleted && (
-                            <div className="w-full bg-gray-500/20 h-1 mt-3 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-blue-500"
-                                style={{ width: `${progressPercent}%` }}
-                              ></div>
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {isFullscreenCover && (
-                <div
-                  className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
-                  onClick={() => setIsFullscreenCover(false)}
-                >
-                  {renderCover(
-                    activeNovel,
-                    "max-h-full max-w-full object-contain drop-shadow-2xl rounded-sm",
-                  )}
-                  <div className="absolute top-4 right-4 text-white/50 text-sm flex items-center gap-2 bg-black/50 px-3 py-1 rounded-full">
-                    <i className="ph ph-x"></i> Clique para fechar
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        };
-
-        const renderReader = () => {
-          if (!activeNovel) return null;
-          const chapters = getChapters(activeNovel);
-          const chapter = chapters[activeChapterIndex];
-          if (!chapter) return null;
-
-          const chapTitle =
-            chapter.title ||
-            chapter.name ||
-            `Capítulo ${activeChapterIndex + 1}`;
-          let content = "";
-          if (typeof chapter === "string") {
-            content = chapter;
-          } else {
-            content =
-              chapter.translatedText ||
-              chapter.originalText ||
-              chapter.content ||
-              chapter.text ||
-              chapter.body ||
-              chapter.generatedText ||
-              "";
-            if (!content) {
-              let longestString = "";
-              const findLongestString = (obj) => {
-                if (typeof obj === "string") {
-                  if (
-                    !obj.startsWith("data:image") &&
-                    obj.length > longestString.length
-                  )
-                    longestString = obj;
-                } else if (Array.isArray(obj)) {
-                  obj.forEach(findLongestString);
-                } else if (typeof obj === "object" && obj !== null) {
-                  Object.values(obj).forEach(findLongestString);
-                }
-              };
-              findLongestString(chapter);
-              content = longestString;
-            }
-          }
-
-          const paragraphs = content.split("\n").filter((p) => p.trim() !== "");
-
-          return (
-            <div
-              className={`h-screen w-full flex flex-col relative ${theme.appBg} ${theme.font}`}
-            >
-              <nav
-                className={`absolute top-0 left-0 right-0 z-50 px-4 py-3 flex justify-between items-center transition-transform duration-300 ease-in-out ${isUIHidden ? "-translate-y-full" : "translate-y-0"} ${theme.navBg}`}
-              >
-                <button
-                  onClick={() => setCurrentView("details")}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors ${theme.text} hover:${theme.bgAccent}`}
-                >
-                  <i className="ph ph-arrow-left text-xl"></i>{" "}
-                  <span className="hidden sm:inline">Voltar</span>
-                </button>
-
-                <h2
-                  className={`font-bold text-center truncate max-w-[50%] ${theme.text}`}
-                >
-                  {chapTitle}
-                </h2>
-
-                <div className="relative">
-                  <button
-                    onClick={() => setShowSettings(!showSettings)}
-                    className={`p-2 rounded-lg transition-colors ${theme.text} hover:${theme.bgAccent}`}
-                  >
-                    <i className="ph ph-gear text-2xl"></i>
-                  </button>
-                  {showSettings && (
-                    <div className="absolute right-0 top-12 w-72 origin-top-right">
-                      {renderSettingsPanel(true)}
-                    </div>
-                  )}
-                </div>
-              </nav>
-
-              <main
-                ref={scrollContainerRef}
-                onScroll={handleScroll}
-                onClick={() => {
-                  setIsUIHidden(!isUIHidden);
-                  setShowSettings(false);
-                }}
-                className="flex-grow h-full overflow-y-auto px-4 pt-24 pb-32 flex justify-center selection:bg-blue-500/30 cursor-pointer scroll-smooth"
-                title="Clique no texto para mostrar/ocultar os menus"
-              >
-                <article
-                  className={`w-full max-w-3xl ${FONT_SIZES[fontSize]} ${theme.text}`}
-                >
-                  {paragraphs.length > 0 ? (
-                    paragraphs.map((para, idx) => (
-                      <p
-                        key={idx}
-                        className={`mb-6 leading-relaxed ${textAlign} tracking-wide`}
-                      >
-                        {para}
-                      </p>
-                    ))
-                  ) : (
-                    <div className="text-center italic opacity-70 mt-20">
-                      Este capítulo parece estar vazio ou o formato não foi
-                      reconhecido.
-                    </div>
-                  )}
-                  <p>&nbsp;</p>
-                </article>
-              </main>
-
-              <div
-                className={`absolute bottom-0 left-0 right-0 z-50 p-4 flex justify-center gap-4 sm:gap-8 border-t backdrop-blur-md transition-transform duration-300 ease-in-out ${isUIHidden ? "translate-y-full" : "translate-y-0"} ${theme.navBg} ${theme.border}`}
-              >
-                <button
-                  disabled={activeChapterIndex === 0}
-                  onClick={() => goToChapter(activeChapterIndex - 1)}
-                  className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all ${activeChapterIndex === 0 ? "opacity-30 cursor-not-allowed grayscale" : theme.buttonOutline}`}
-                >
-                  <i className="ph ph-caret-left text-xl"></i>{" "}
-                  <span className="hidden sm:inline">Anterior</span>
-                </button>
-
-                <div
-                  className={`flex items-center justify-center px-4 font-bold ${theme.text}`}
-                >
-                  {activeChapterIndex + 1} / {chapters.length}
-                </div>
-
-                <button
-                  disabled={activeChapterIndex === chapters.length - 1}
-                  onClick={() => goToChapter(activeChapterIndex + 1)}
-                  className={`flex items-center gap-2 px-4 sm:px-6 py-3 rounded-xl font-medium transition-all ${activeChapterIndex === chapters.length - 1 ? "opacity-30 cursor-not-allowed grayscale" : theme.button}`}
-                >
-                  <span className="hidden sm:inline">Próximo</span>{" "}
-                  <i className="ph ph-caret-right text-xl"></i>
-                </button>
-              </div>
-            </div>
-          );
-        };
-
-        const renderSettingsPanel = (isFloating = false) => (
-          <div
-            className={`p-5 rounded-xl z-50 ${theme.card} ${isFloating ? "shadow-2xl border" : "mb-8"}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              className={`font-bold mb-4 flex items-center gap-2 ${theme.text}`}
-            >
-              <i className={`ph ph-faders text-xl ${theme.accent}`}></i>{" "}
-              Preferências
-            </h3>
-
-            <div className="mb-5">
-              <span
-                className={`text-sm font-medium mb-2 block ${theme.textMuted}`}
-              >
-                Tema Visual
-              </span>
-              <div className="grid grid-cols-3 gap-2">
-                {Object.values(THEMES).map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setThemeId(t.id)}
-                    className={`flex flex-col items-center justify-center p-3 rounded-lg border-2 transition-all ${themeId === t.id ? `border-blue-500 bg-blue-500/10 ${theme.text}` : `border-transparent ${theme.bgAccent} ${theme.textMuted} hover:opacity-80`}`}
-                  >
-                    <i className={`ph ${t.icon} text-2xl mb-1`}></i>
-                    <span className="text-xs font-medium">{t.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-5">
-              <span
-                className={`text-sm font-medium mb-2 block ${theme.textMuted}`}
-              >
-                Tamanho da Fonte
-              </span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-500/20">
-                {["sm", "md", "lg", "xl"].map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setFontSize(size)}
-                    className={`flex-1 py-2 flex items-center justify-center transition-colors ${fontSize === size ? `bg-blue-500 text-white font-bold` : `${theme.bgAccent} ${theme.text} hover:opacity-80`}`}
-                  >
-                    <i
-                      className="ph ph-text-t"
-                      style={{
-                        fontSize:
-                          size === "sm"
-                            ? "14px"
-                            : size === "md"
-                              ? "18px"
-                              : size === "lg"
-                                ? "22px"
-                                : "26px",
-                      }}
-                    ></i>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <span
-                className={`text-sm font-medium mb-2 block ${theme.textMuted}`}
-              >
-                Alinhamento do Texto
-              </span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-500/20">
-                {[
-                  {
-                    id: "text-left",
-                    icon: "ph-text-align-left",
-                    label: "Esquerda",
-                  },
-                  {
-                    id: "text-center",
-                    icon: "ph-text-align-center",
-                    label: "Centro",
-                  },
-                  {
-                    id: "text-justify",
-                    icon: "ph-text-align-justify",
-                    label: "Justificado",
-                  },
-                ].map((align) => (
-                  <button
-                    key={align.id}
-                    title={align.label}
-                    onClick={() => setTextAlign(align.id)}
-                    className={`flex-1 py-2 flex items-center justify-center transition-colors ${textAlign === align.id ? `bg-blue-500 text-white font-bold` : `${theme.bgAccent} ${theme.text} hover:opacity-80`}`}
-                  >
-                    <i className={`ph ${align.icon} text-xl`}></i>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-        return (
-          <div
-            className={`h-full w-full transition-colors duration-300 ${theme.appBg} ${theme.font} selection:bg-blue-500/30 overflow-hidden`}
-          >
-            {loading && (
-              <div
-                className={`h-full flex flex-col items-center justify-center ${theme.text}`}
-              >
-                <i
-                  className={`ph ph-book-open text-6xl animate-bounce mb-4 ${theme.accent}`}
-                ></i>
-                <h2 className="text-xl font-bold">
-                  A Carregar a Biblioteca...
-                </h2>
-              </div>
-            )}
-
-            {!loading && error && novels.length === 0 && (
-              <div
-                className={`h-full flex flex-col items-center justify-center p-6 text-center ${theme.text}`}
-              >
-                <i className="ph ph-wifi-slash text-6xl text-red-500 mb-6"></i>
-                <h2 className="text-2xl font-bold mb-4">Falha de Ligação</h2>
-                <p className={`mb-8 max-w-md ${theme.textMuted}`}>{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className={`px-8 py-3 rounded-xl flex items-center gap-2 font-bold shadow-lg transition-transform hover:scale-105 ${theme.button}`}
-                >
-                  <i className="ph ph-arrows-clockwise text-xl"></i>
-                  Tentar Novamente
-                </button>
-              </div>
-            )}
-
-            {!loading && novels.length > 0 && (
-              <>
-                {currentView === "library" && renderLibrary()}
-                {currentView === "details" && renderDetails()}
-                {currentView === "reader" && renderReader()}
-              </>
-            )}
-          </div>
-        );
+      if(this.capa && this.capa.dataUrl){
+        book.setCover(this.capa.dataUrl, this.capa.tipo || "image/jpeg", this.capa.nome || "cover.jpg", {
+          asPage:true,
+          altText:"Capa de " + titulo
+        });
       }
 
-      const root = ReactDOM.createRoot(document.getElementById("root"));
-      root.render(<App />);
-    </script>
-  </body>
+      caps.forEach((cap,index)=>{
+        const title = String(cap.titulo || ("Capítulo " + cap.numero));
+        const markdown = this.removerTituloDuplicadoMarkdown(cap.conteudo || "", title);
+        const body = '<h1>' + this.escapeHtml(String(cap.numero) + ". " + title) + '</h1>' + this.markdownParaHtml(markdown);
+        book.addChapter(title, body, {
+          id: "chap" + (index + 1),
+          order: index,
+          css: ["style.css"]
+        });
+      });
+
+      // O epubit gera automaticamente o nav.xhtml e o toc.ncx.
+      // Retornamos os bytes para que o mesmo EPUB possa ser entregue ao Boko.
+      const blob = await book.generate();
+      return new Uint8Array(await blob.arrayBuffer());
+    },
+
+    async converterBoko(dados, entrada, saida){
+      let modulo;
+      try{
+        modulo = await import("./boko.js");
+      }catch(localError){
+        // O Chrome bloqueia módulos locais importados por file://.
+        throw new Error("O Boko não pode ser carregado via file://. Para KFX/AZW3 é necessário abrir o Manager por HTTP/localhost, ou incorporar o boko.js e o WASM ao HTML. Erro: " + localError.message);
+      }
+
+      if(typeof modulo.default === "function") await modulo.default();
+      if(typeof modulo.convert !== "function") throw new Error("A API convert() do Boko não foi encontrada.");
+      const out = modulo.convert(new Uint8Array(dados), entrada, saida);
+      return out instanceof Uint8Array ? out : new Uint8Array(out);
+    },
+
+    async salvarEpub(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+        const epub = await this.criarEpubBase();
+        const nome = this.nomeArquivo().replace(/\.html$/i,".epub");
+        await this.salvarBlob(epub,"application/epub+zip",nome,"EPUB salvo com sucesso.");
+      }catch(e){
+        if(e && e.name === "AbortError") return;
+        this.mostrar("Erro ao salvar EPUB: " + (e.message || e),"error");
+      }
+    },
+
+    async salvarKindle(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()) return;
+        const base = await this.criarEpubBase();
+        let formato = "kfx";
+        let extensao = ".kfx";
+        let mime = "application/x-kfx-ebook";
+        let final;
+
+        try{
+          final = await this.converterBoko(base,"epub","kfx");
+        }catch(kfxError){
+          console.warn("KFX falhou; tentando AZW3:",kfxError);
+          formato = "azw3";
+          extensao = ".azw3";
+          mime = "application/x-mobi8-ebook";
+          final = await this.converterBoko(base,"epub","azw3");
+        }
+
+        const nome = this.nomeArquivo().replace(/\.html$/i,extensao);
+        await this.salvarBlob(final,mime,nome,formato === "kfx" ? "KFX salvo com sucesso." : "KFX indisponível; AZW3 salvo com sucesso.");
+      }catch(e){
+        if(e && e.name === "AbortError") return;
+        this.mostrar("Erro ao gerar Kindle: " + (e.message || e),"error");
+      }
+    },
+
+    async salvarBlob(dados,mime,nome,mensagem){
+      if(window.showSaveFilePicker){
+        const handle = await window.showSaveFilePicker({
+          suggestedName:nome,
+          types:[{description:"Arquivo de livro",accept:{[mime]:[nome.slice(nome.lastIndexOf("."))]}}]
+        });
+        const writable = await handle.createWritable();
+        await writable.write(new Blob([dados],{type:mime}));
+        await writable.close();
+      }else{
+        const blob = new Blob([dados],{type:mime});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href=url;a.download=nome;document.body.appendChild(a);a.click();a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+      }
+      this.fecharSalvar();
+      this.mostrar(mensagem,"ok");
+    },
+
+    async salvarLeitor(){
+      try{
+        if(this.editarJsonDireto && !this.aplicarJsonEditado()){
+          return;
+        }
+
+        const jsonParaLeitor = clone(this.json);
+        delete jsonParaLeitor.capitulos_arquivados;
+        delete jsonParaLeitor.capa;
+        const jsonTexto = JSON.stringify(jsonParaLeitor, null, 2)
+          .replace(/<\/script/gi, "<\\/script");
+        const arquivadosTexto = JSON.stringify(this.capitulosArquivados, null, 2)
+          .replace(/<\/script/gi, "<\\/script");
+        const capaTexto = JSON.stringify(this.capa || {dataUrl:"",nome:"",tipo:""}, null, 2)
+          .replace(/<\/script/gi, "<\\/script");
+
+        const leitor = this.gerarHtmlLeitor(jsonTexto, arquivadosTexto, capaTexto);
+
+        if(window.showSaveFilePicker){
+          const handle = await window.showSaveFilePicker({
+            suggestedName: (this.json.titulo || "lightnovel") + ".html",
+            types: [{
+              description: "Página HTML",
+              accept: {"text/html":[".html",".htm"]}
+            }]
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(leitor);
+          await writable.close();
+
+          this.fecharSalvar();
+          this.mostrar("Leitor salvo com sucesso.", "ok");
+          return;
+        }
+
+        // Fallback para navegadores que não implementam File System Access API.
+        const blob = new Blob([leitor], {type:"text/html;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = (this.json.titulo || "lightnovel") + ".html";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+        this.fecharSalvar();
+        this.mostrar("Leitor salvo. Este navegador não permite abrir o diálogo de local via API.", "ok");
+      }catch(e){
+        if(e && e.name === "AbortError"){
+          this.mostrar("Salvamento cancelado.", "error");
+          return;
+        }
+        this.mostrar("Erro ao salvar leitor: " + (e.message || e), "error");
+      }
+    },
+
+
+    gerarHtmlLeitor(jsonTexto, arquivadosTexto, capaTexto){
+      const titulo = this.escapeHtml(this.json.titulo || "Light Novel");
+
+      return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>${titulo}</title>
+<style>
+:root{
+  --reader-bg:#111827;
+  --reader-text:#f3f4f6;
+  --reader-muted:#9ca3af;
+  --reader-panel:#1f2937;
+  --reader-border:#374151;
+  --reader-accent:#22d3ee;
+  --reader-size:18px;
+  --reader-font:Georgia,serif;
+  --reader-align:left;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--reader-bg);
+  color:var(--reader-text);
+  font-family:var(--reader-font);
+  font-size:var(--reader-size);
+  line-height:1.8;
+}
+button{
+  border:0;
+  border-radius:10px;
+  padding:9px 12px;
+  background:var(--reader-panel);
+  color:var(--reader-text);
+  border:1px solid var(--reader-border);
+  cursor:pointer;
+  font:inherit;
+}
+button:active{transform:scale(.98)}
+.reader-header{
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:20;
+  min-height:58px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px max(10px,env(safe-area-inset-left)) 8px max(10px,env(safe-area-inset-right));
+  background:color-mix(in srgb,var(--reader-bg) 92%,transparent);
+  border-bottom:1px solid var(--reader-border);
+  backdrop-filter:blur(12px);
+}
+.reader-title{
+  flex:1;
+  min-width:0;
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-align:left;
+}
+.header-btn{flex:0 0 auto;font-size:18px;padding:7px 10px}
+main{
+  width:100%;
+  max-width:900px;
+  margin:auto;
+  padding:82px 18px 90px;
+}
+.book-cover{display:block;width:auto;max-width:100%;max-height:58vh;margin:0 auto 28px;object-fit:contain;border-radius:10px;box-shadow:0 10px 35px #0006}
+.cover-section{min-height:calc(100vh - 150px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 0 50px;gap:10px}.cover-section .chapter-navigation{width:100%;max-width:560px;margin-top:0}
+.reader-cover{display:block;width:auto;max-width:100%;max-height:calc(100vh - 190px);object-fit:contain;border-radius:10px;box-shadow:0 10px 35px #0006}
+.cover-empty{padding:50px 20px;text-align:center;color:var(--reader-muted)}
+.book-title{
+  margin:0 0 30px;
+  font-size:1.65em;
+  line-height:1.25;
+  text-align:center;
+}
+.chapter{display:none}
+.chapter.active{display:block}
+.chapter h2{
+  margin:0 0 28px;
+  font-size:1.25em;
+  line-height:1.35;
+}
+.chapter-content{
+  text-align:var(--reader-align);
+  overflow-wrap:anywhere;
+}
+.chapter-content p{margin:0 0 1.05em}
+.chapter-navigation{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:44px;
+  padding-top:18px;
+  border-top:1px solid var(--reader-border);
+}
+.chapter-nav-button{
+  flex:1;
+  min-height:44px;
+  background:var(--reader-panel);
+  color:var(--reader-text);
+}
+.chapter-nav-button:disabled{
+  opacity:.35;
+  cursor:not-allowed;
+}
+.chapter-nav-next{
+  text-align:right;
+}
+.chapter-content h1,.chapter-content h2,.chapter-content h3{line-height:1.35}
+.chapter-content img{max-width:100%;height:auto}
+.progress-wrap{
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:25;
+  height:7px;
+  background:color-mix(in srgb,var(--reader-panel) 90%,transparent);
+}
+.progress-bar{
+  height:100%;
+  width:0;
+  background:var(--reader-accent);
+  transition:width .1s linear;
+}
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:50;
+  display:none;
+  align-items:flex-end;
+  justify-content:center;
+  padding:12px;
+  background:#000a;
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  width:100%;
+  max-width:560px;
+  max-height:88vh;
+  overflow:auto;
+  background:var(--reader-panel);
+  border:1px solid var(--reader-border);
+  border-radius:16px 16px 10px 10px;
+  padding:18px;
+  box-shadow:0 18px 60px #0008;
+}
+.modal h2{margin:0 0 15px;font-size:1.2em}
+.modal-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.close-btn{font-size:20px;padding:4px 9px}
+.option-group{margin:18px 0}
+.option-label{display:block;font-weight:700;margin-bottom:8px}
+.option-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.option-grid.three{grid-template-columns:repeat(3,1fr)}
+.option-grid.five{grid-template-columns:repeat(2,1fr)}
+.option-btn.active{
+  border-color:var(--reader-accent);
+  box-shadow:0 0 0 1px var(--reader-accent) inset;
+}
+.range-row{display:flex;align-items:center;gap:12px}
+.range-row input{flex:1}
+.range-value{min-width:48px;text-align:right;font-weight:700}
+.chapter-list{display:grid;gap:7px}
+.chapter-item{
+  width:100%;
+  text-align:left;
+  padding:11px 12px;
+}
+.chapter-item.active{
+  border-color:var(--reader-accent);
+}
+.setting-note{font-size:.82em;color:var(--reader-muted);margin-top:12px}
+.theme-light{--reader-bg:#fafafa;--reader-text:#202124;--reader-muted:#5f6368;--reader-panel:#fff;--reader-border:#dadce0;--reader-accent:#2563eb}
+.theme-dark{--reader-bg:#111827;--reader-text:#f3f4f6;--reader-muted:#9ca3af;--reader-panel:#1f2937;--reader-border:#374151;--reader-accent:#22d3ee}
+.theme-sepia{--reader-bg:#f3ead7;--reader-text:#493b2a;--reader-muted:#806f58;--reader-panel:#e9ddc5;--reader-border:#cbbd9f;--reader-accent:#8b5e34}
+.font-serif{--reader-font:Georgia,"Times New Roman",serif}
+.font-sans{--reader-font:Arial,Helvetica,sans-serif}
+.font-humanist{--reader-font:"Trebuchet MS",Arial,sans-serif}
+.font-modern{--reader-font:Verdana,Arial,sans-serif}
+.font-mono{--reader-font:Consolas,"Courier New",monospace}
+.font-preview-serif{font-family:Georgia,"Times New Roman",serif}
+.font-preview-sans{font-family:Arial,Helvetica,sans-serif}
+.font-preview-humanist{font-family:"Trebuchet MS",Arial,sans-serif}
+.font-preview-modern{font-family:Verdana,Arial,sans-serif}
+.font-preview-mono{font-family:Consolas,"Courier New",monospace}
+@media(min-width:600px){
+  .reader-header{padding-left:18px;padding-right:18px}
+  main{padding-left:28px;padding-right:28px}
+  .modal-backdrop{align-items:center}
+  .modal{border-radius:16px}
+  .option-grid.five{grid-template-columns:repeat(5,1fr)}
+}
+@media(max-width:600px){
+  .reader-header{padding:8px 10px;gap:7px}
+  .reader-header .header-btn{width:44px;height:44px;display:grid;place-items:center;padding:0;border-radius:12px}
+  .reader-title{font-size:.95em}
+  .chapter-navigation{width:100%;}
+  .cover-section .reader-cover{max-width:100%;max-height:calc(100vh - 250px)}
+  .cover-section .chapter-navigation{width:100%;max-width:100%;}
+}
+@media(max-width:380px){
+  main{padding-left:14px;padding-right:14px}
+  .header-btn{font-size:16px;padding:6px 8px}
+  .option-grid.five{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body class="theme-dark font-serif">
+
+<header class="reader-header">
+  <button class="header-btn" id="close-reader-button" title="Fechar leitor" aria-label="Fechar leitor">×</button>
+  <div id="header-title" class="reader-title">${titulo}</div>
+  <button class="header-btn" id="chapter-button" title="Escolher capítulo">☰</button>
+  <button class="header-btn" id="settings-button" title="Configurações">⚙</button>
+</header>
+
+<main>
+  <h1 id="book-title" class="book-title">${titulo}</h1>
+  <div id="chapters"></div>
+</main>
+
+<div class="progress-wrap" title="Progresso do capítulo">
+  <div id="progress-bar" class="progress-bar"></div>
+</div>
+
+<div id="chapter-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Escolher capítulo</h2>
+      <button class="close-btn" data-close="chapter-modal">×</button>
+    </div>
+    <div id="chapter-list" class="chapter-list"></div>
+  </div>
+</div>
+
+<div id="settings-modal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Configurações de leitura</h2>
+      <button class="close-btn" data-close="settings-modal">×</button>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Tipo de fonte</span>
+      <div class="option-grid five" id="font-options">
+        <button class="option-btn font-preview-serif" data-font="serif">Serif</button>
+        <button class="option-btn font-preview-sans" data-font="sans">Sans</button>
+        <button class="option-btn font-preview-humanist" data-font="humanist">Humanista</button>
+        <button class="option-btn font-preview-modern" data-font="modern">Moderna</button>
+        <button class="option-btn font-preview-mono" data-font="mono">Monoespaçada</button>
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Tamanho da fonte</span>
+      <div class="range-row">
+        <input id="font-size" type="range" min="14" max="30" step="1">
+        <span id="font-size-value" class="range-value"></span>
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Tema</span>
+      <div class="option-grid three" id="theme-options">
+        <button class="option-btn" data-theme="light">Claro</button>
+        <button class="option-btn" data-theme="dark">Escuro</button>
+        <button class="option-btn" data-theme="sepia">Sépia</button>
+      </div>
+    </div>
+
+    <div class="option-group">
+      <span class="option-label">Alinhamento</span>
+      <div class="option-grid">
+        <button class="option-btn" data-align="left">Esquerda</button>
+        <button class="option-btn" data-align="justify">Justificado</button>
+      </div>
+    </div>
+
+    <div class="setting-note">As configurações, o capítulo atual e o progresso são salvos automaticamente neste navegador.</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.7/marked.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"><\/script>
+
+<script id="lightnovel-json" type="application/json">
+${jsonTexto}
+<\/script>
+
+<script id="lightnovel-arquivados" type="application/json">
+${arquivadosTexto}
+<\/script>
+
+<script id="lightnovel-capa" type="application/json">
+${capaTexto}
+<\/script>
+
+<script>
+const DATA = JSON.parse(document.getElementById("lightnovel-json").textContent);
+const ARCHIVED = JSON.parse(document.getElementById("lightnovel-arquivados").textContent);
+const COVER = JSON.parse(document.getElementById("lightnovel-capa").textContent || '{"dataUrl":"","nome":"","tipo":""}');
+const chapters = [
+  ...(Array.isArray(ARCHIVED) ? ARCHIVED : []),
+  ...(Array.isArray(DATA.capitulos) ? DATA.capitulos : [])
+].sort((a,b) => Number(a.numero) - Number(b.numero));
+const sections = [{type:"cover", numero:0, titulo:"Capa", cover:COVER}, ...chapters.map(cap=>({type:"chapter", ...cap}))];
+const root = document.getElementById("chapters");
+const list = document.getElementById("chapter-list");
+const title = DATA.titulo || "Light Novel";
+const storageKey = "lightnovel-reader-v1:" + title;
+
+const defaults = {
+  font:"serif",
+  size:18,
+  theme:"dark",
+  align:"left",
+  chapter:0,
+  progress:{}
+};
+
+let settings = loadSettings();
+
+function loadSettings(){
+  try{
+    const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+    return {
+      ...defaults,
+      ...(saved || {}),
+      progress:{...(saved && saved.progress || {})}
+    };
+  }catch(e){
+    return {...defaults, progress:{}};
+  }
+}
+
+function saveSettings(){
+  localStorage.setItem(storageKey, JSON.stringify(settings));
+}
+
+function applySettings(){
+  document.body.classList.remove(
+    "font-serif","font-sans","font-humanist","font-modern","font-mono",
+    "theme-light","theme-dark","theme-sepia"
+  );
+
+  document.body.classList.add("font-" + settings.font);
+  document.body.classList.add("theme-" + settings.theme);
+  document.documentElement.style.setProperty("--reader-size", settings.size + "px");
+  document.documentElement.style.setProperty("--reader-align", settings.align);
+
+  document.getElementById("font-size").value = settings.size;
+  document.getElementById("font-size-value").textContent = settings.size + " px";
+
+  document.querySelectorAll("[data-font]").forEach(b =>
+    b.classList.toggle("active", b.dataset.font === settings.font)
+  );
+  document.querySelectorAll("[data-theme]").forEach(b =>
+    b.classList.toggle("active", b.dataset.theme === settings.theme)
+  );
+  document.querySelectorAll("[data-align]").forEach(b =>
+    b.classList.toggle("active", b.dataset.align === settings.align)
+  );
+}
+
+function normalizeTitleText(value){
+  return String(value || "")
+    .replace(/[*_~]/g,"").replace(new RegExp(String.fromCharCode(96),"g"),"")
+    .replace(/\\s+/g," ")
+    .trim()
+    .toLowerCase();
+}
+
+function removeDuplicateChapterTitle(markdown, cap){
+  let text = String(markdown || "");
+  const title = normalizeTitleText(cap.titulo);
+  if(!title) return text;
+
+  // Remove um título Markdown inicial quando ele repete o título estrutural do leitor.
+  const heading = text.match(/^\\s{0,3}#{1,6}\\s+(.+?)(?:\\r?\\n|$)/);
+  if(heading){
+    const headingTitle = normalizeTitleText(heading[1]);
+    const headingWithoutNumber = headingTitle.replace(/^\\d+\\s*[.):-]\\s*/, "");
+    if(headingWithoutNumber === title || headingTitle === normalizeTitleText(cap.numero + ". " + cap.titulo)){
+      return text.slice(heading[0].length);
+    }
+  }
+
+  // Também evita duplicação quando o modelo inicia o conteúdo com uma linha simples igual ao título.
+  const firstLine = text.match(/^\\s*(.+?)(?:\\r?\\n|$)/);
+  if(firstLine){
+    const first = normalizeTitleText(firstLine[1]).replace(/^\\d+\\s*[.):-]\\s*/, "");
+    if(first === title){
+      return text.slice(firstLine[0].length);
+    }
+  }
+
+  return text;
+}
+
+function renderChapters(){
+  root.innerHTML = "";
+  list.innerHTML = "";
+  sections.forEach((section,index)=>{
+    const item = document.createElement("button");
+    item.className = "chapter-item";
+    item.textContent = section.type === "cover" ? "0. Capa" : section.numero + ". " + section.titulo;
+    item.addEventListener("click",()=>{ showChapter(index,true); closeModal("chapter-modal"); });
+    list.appendChild(item);
+  });
+}
+
+function renderCurrentSection(){
+  root.innerHTML = "";
+  const section = sections[settings.chapter];
+  if(!section) return;
+
+  if(section.type === "cover"){
+    const coverSection = document.createElement("section");
+    coverSection.className = "cover-section";
+    if(section.cover && section.cover.dataUrl){
+      const img = document.createElement("img");
+      img.className = "reader-cover";
+      img.src = section.cover.dataUrl;
+      img.alt = section.cover.nome ? ("Capa: " + section.cover.nome) : ("Capa de " + title);
+      coverSection.appendChild(img);
+    }else{
+      const empty = document.createElement("div");
+      empty.className = "cover-empty";
+      empty.textContent = "Nenhuma capa foi definida.";
+      coverSection.appendChild(empty);
+    }
+    const coverNavigation = document.createElement("nav");
+    coverNavigation.className = "chapter-navigation";
+    coverNavigation.setAttribute("aria-label", "Navegação da leitura");
+    const coverPrevious = document.createElement("button");
+    coverPrevious.className = "chapter-nav-button";
+    coverPrevious.textContent = "← Voltar";
+    coverPrevious.disabled = true;
+    const coverNext = document.createElement("button");
+    coverNext.className = "chapter-nav-button chapter-nav-next";
+    coverNext.textContent = "Próximo →";
+    coverNext.disabled = sections.length <= 1;
+    coverNext.addEventListener("click",()=>{ if(sections.length > 1) showChapter(1,false); });
+    coverNavigation.appendChild(coverPrevious);
+    coverNavigation.appendChild(coverNext);
+    coverSection.appendChild(coverNavigation);
+    root.appendChild(coverSection);
+    return;
+  }
+
+  const sectionEl = document.createElement("section");
+  sectionEl.className = "chapter active";
+  const h2 = document.createElement("h2");
+  h2.textContent = section.numero + ". " + section.titulo;
+  sectionEl.appendChild(h2);
+  const content = document.createElement("div");
+  content.className = "chapter-content";
+  const conteudo = removeDuplicateChapterTitle(section.conteudo || "", section);
+  if(window.marked && window.DOMPurify) content.innerHTML = DOMPurify.sanitize(marked.parse(conteudo));
+  else content.textContent = conteudo;
+  sectionEl.appendChild(content);
+
+  const navigation = document.createElement("nav");
+  navigation.className = "chapter-navigation";
+  navigation.setAttribute("aria-label", "Navegação da leitura");
+  const previous = document.createElement("button");
+  previous.className = "chapter-nav-button"; previous.textContent = "← Voltar"; previous.disabled = settings.chapter === 0;
+  previous.addEventListener("click",()=>{ if(settings.chapter > 0) showChapter(settings.chapter - 1,false); });
+  const next = document.createElement("button");
+  next.className = "chapter-nav-button chapter-nav-next"; next.textContent = "Próximo →"; next.disabled = settings.chapter === sections.length - 1;
+  next.addEventListener("click",()=>{ if(settings.chapter < sections.length - 1) showChapter(settings.chapter + 1,false); });
+  navigation.appendChild(previous); navigation.appendChild(next); sectionEl.appendChild(navigation); root.appendChild(sectionEl);
+}
+
+function showChapter(index,restore){
+  if(!sections.length) return;
+  index = Math.max(0,Math.min(index,sections.length-1));
+  settings.chapter = index;
+  renderCurrentSection();
+  document.querySelectorAll(".chapter-item").forEach((el,i)=>el.classList.toggle("active",i===index));
+  saveSettings();
+  requestAnimationFrame(()=>{
+    if(restore){
+      const pct = Number(settings.progress[index] || 0);
+      const max = Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+      window.scrollTo({top:pct>0 ? max*pct : 0,left:0,behavior:"auto"});
+    }else window.scrollTo({top:0,left:0,behavior:"auto"});
+    requestAnimationFrame(updateProgress);
+  });
+}
+
+function updateProgress(){
+  const max = document.documentElement.scrollHeight-window.innerHeight;
+  const pct = max<=0 ? 100 : Math.max(0,Math.min(100,(window.scrollY/max)*100));
+  document.getElementById("progress-bar").style.width = pct + "%";
+  if(sections.length && settings.chapter>=0){ settings.progress[settings.chapter]=Number((pct/100).toFixed(4)); saveSettings(); }
+}
+
+function openModal(id){
+  document.getElementById(id).classList.add("open");
+}
+function closeModal(id){
+  document.getElementById(id).classList.remove("open");
+}
+
+document.getElementById("close-reader-button").addEventListener("click",()=>{
+  try{ window.parent.postMessage({type:"lightnovel-close-reader"},"*"); }catch(e){}
+});
+
+document.getElementById("chapter-button").addEventListener("click",()=>openModal("chapter-modal"));
+document.getElementById("settings-button").addEventListener("click",()=>openModal("settings-modal"));
+
+document.querySelectorAll("[data-close]").forEach(b=>{
+  b.addEventListener("click",()=>closeModal(b.dataset.close));
+});
+document.querySelectorAll(".modal-backdrop").forEach(backdrop=>{
+  backdrop.addEventListener("click",e=>{
+    if(e.target===backdrop) backdrop.classList.remove("open");
+  });
+});
+
+document.querySelectorAll("[data-font]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    settings.font=b.dataset.font;
+    applySettings();
+    saveSettings();
+  });
+});
+document.getElementById("font-size").addEventListener("input",e=>{
+  settings.size=Number(e.target.value);
+  applySettings();
+  saveSettings();
+});
+document.querySelectorAll("[data-theme]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    settings.theme=b.dataset.theme;
+    applySettings();
+    saveSettings();
+  });
+});
+document.querySelectorAll("[data-align]").forEach(b=>{
+  b.addEventListener("click",()=>{
+    settings.align=b.dataset.align;
+    applySettings();
+    saveSettings();
+  });
+});
+
+window.addEventListener("scroll",updateProgress,{passive:true});
+window.addEventListener("resize",updateProgress);
+
+renderChapters();
+applySettings();
+showChapter(settings.chapter,false);
+requestAnimationFrame(updateProgress);
+<\/script>
+</body>
+</html>`;
+    },
+
+    nomeArquivo(){
+      const base = (this.json.titulo || "lightnovel")
+        .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+        .replace(/[^a-zA-Z0-9_-]+/g,"_")
+        .replace(/^_+|_+$/g,"");
+      return (base || "lightnovel") + ".html";
+    },
+
+    escapeHtml(value){
+      return String(value).replace(/[&<>"']/g, c => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+      }[c]));
+    },
+
+    arquivoSelecionado(event){
+      const file = event.target.files && event.target.files[0];
+      if(!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = () => {
+        try{
+          const html = reader.result;
+          const doc = new DOMParser().parseFromString(html,"text/html");
+          const script = doc.getElementById("lightnovel-json");
+          const archivedScript = doc.getElementById("lightnovel-arquivados");
+          const coverScript = doc.getElementById("lightnovel-capa");
+
+          if(!script){
+            throw new Error("O arquivo não contém o JSON do LightNovel Manager.");
+          }
+
+          const data = JSON5.parse(script.textContent.trim());
+          const arquivados = archivedScript
+            ? JSON5.parse(archivedScript.textContent.trim() || "[]")
+            : [];
+          const capa = coverScript
+            ? JSON5.parse(coverScript.textContent.trim() || '{"dataUrl":"","nome":"","tipo":""}')
+            : {dataUrl:"",nome:"",tipo:""};
+
+          this.validarJsonObra(data);
+          if(!Array.isArray(arquivados)) throw new Error("Capítulos arquivados inválidos.");
+          if(!capa || typeof capa !== "object") throw new Error("Dados da capa inválidos.");
+          if(capa.dataUrl && !String(capa.dataUrl).startsWith("data:image/")) throw new Error("A capa carregada não contém uma imagem Base64 válida.");
+          // Compatibilidade: histórico e capa permanecem fora do JSON da IA.
+          delete data.capitulos_arquivados;
+          delete data.capa;
+          this.json = data;
+          this.capitulosArquivados = arquivados;
+          this.capa = {dataUrl:String(capa.dataUrl || ""),nome:String(capa.nome || ""),tipo:String(capa.tipo || "")};
+          this.json.capitulos.sort((a,b) => Number(a.numero) - Number(b.numero));
+          this.capitulosArquivados.sort((a,b) => Number(a.numero) - Number(b.numero));
+          this.jsonEditado = this.jsonString;
+          this.resposta = "";
+          this._memoriaIdAtual = null;
+
+          this.mostrar("Obra carregada do arquivo com sucesso.", "ok");
+        }catch(e){
+          this.mostrar("Erro ao carregar HTML: " + e.message, "error");
+        }
+      };
+
+      reader.onerror = () => this.mostrar("Não foi possível ler o arquivo.", "error");
+      reader.readAsText(file);
+    },
+
+    validarJsonObra(data){
+      if(!data || typeof data !== "object") throw new Error("JSON inválido.");
+      if(!data.diretrizes) throw new Error("JSON sem diretrizes.");
+      if(!data.parametros) throw new Error("JSON sem parametros.");
+      if(!data.estado) throw new Error("JSON sem estado.");
+      if(!data.biblia) throw new Error("JSON sem biblia.");
+      if(!data.resumo) throw new Error("JSON sem resumo.");
+      if(!Array.isArray(data.capitulos)) throw new Error("JSON sem capitulos.");
+    }
+  };
+}
+</script>
+<script>
+(function(){
+  function ajustarAlturaHeaderManager(){
+    const header=document.querySelector("body > .app > header");
+    if(!header) return;
+    const altura=Math.ceil(header.getBoundingClientRect().height);
+    document.documentElement.style.setProperty("--manager-header-height", altura + "px");
+  }
+
+  window.addEventListener("resize", ajustarAlturaHeaderManager);
+  window.addEventListener("load", ajustarAlturaHeaderManager);
+  if(window.ResizeObserver){
+    const iniciar=()=>{
+      const header=document.querySelector("body > .app > header");
+      if(header){
+        new ResizeObserver(ajustarAlturaHeaderManager).observe(header);
+        ajustarAlturaHeaderManager();
+      }
+    };
+    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar, {once:true});
+    else iniciar();
+  }else{
+    if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", ajustarAlturaHeaderManager, {once:true});
+    else ajustarAlturaHeaderManager();
+  }
+
+  window.addEventListener("message", event=>{
+    if(event && event.data && event.data.type === "lightnovel-close-reader"){
+      const app=document.querySelector("body > .app");
+      if(app && window.Alpine){
+        const data=window.Alpine.$data(app);
+        if(data && typeof data.fecharLeitorInterno === "function") data.fecharLeitorInterno();
+      }
+    }
+  });
+})();
+</script>
+</div>
+</body>
 </html>
